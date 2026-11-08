@@ -92,3 +92,19 @@ pre.notes { white-space: pre-wrap; font: inherit; margin: 0; color: var(--ink); 
 .btnrow.two { grid-template-columns: 1fr 1fr; }
 .btnrow a, .btnrow button { min-height: var(--tap); border: 1px solid var(--line); border-radius: 10px; background: var(--surface); display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 15px; }
 .paidmark { display: inline-block; border: 2px solid var(--green); color: var(--green); border-radius: 6px; padding: 2px 10px; font-weight: 600; letter-spacing: .05em; }
+
+.mhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.mhead b { font-size: 18px; font-weight: 600; }
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px; }
+.tile .lab { color: var(--muted); font-size: 13px; }
+.tile .val { font-size: 22px; font-weight: 600; }
+.tile .val.pos { color: var(--green); }
+.tile .val.neg { color: #E89A9A; }
+.ops { display: flex; flex-direction: column; gap: 6px; }
+.op { display: flex; justify-content: space-between; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 8px 12px; }
+.op .t { min-width: 0; }
+.op .t div:last-child { color: var(--muted); font-size: 13px; }
+.op .a { white-space: nowrap; font-weight: 600; }
+.op .a.in { color: var(--green); }
+.op .a.mi { color: var(--teal); }

@@ -30,6 +30,9 @@
   C.invoiceTotal = function (lines) {
     return Math.round((lines || []).reduce(function (s, L) { return s + (Number(L.qty) || 1) * (Number(L.price) || 0); }, 0) * 100) / 100;
   };
+  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  C.monthLabel = function (ym) { const m = /^(\d{4})-(\d{2})$/.exec(String(ym || '')); return m ? MONTHS[Number(m[2]) - 1] + ' ' + m[1] : ''; };
+  C.shiftMonth = function (ym, delta) { const m = /^(\d{4})-(\d{2})$/.exec(String(ym || '')); if (!m) return ''; let y = Number(m[1]), mo = Number(m[2]) - 1 + delta; y += Math.floor(mo / 12); mo = ((mo % 12) + 12) % 12; return y + '-' + ('0' + (mo + 1)).slice(-2); };
   C.paymentOptions = ['cash', 'zelle', 'card', 'square'];
   C.lineValid = function (L) { return !!(L && String(L.desc || '').trim()) && !isNaN(Number(L.price)) && String(L.price) !== '' && Number(L.price) >= 0; };
   C.statusClass = function (key) { return 'st-' + (/^(site|new|pending|callback|scheduled|done|lost|spam)$/.test(key) ? key : 'new'); };

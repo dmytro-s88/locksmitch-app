@@ -40,6 +40,7 @@
     if (state.view === 'leads') renderLeads();
     if (state.view === 'lead') renderLead();
     if (state.view === 'invoice') renderInvoice();
+    if (state.view === 'money') renderMoney();
   }
 
   function renderLeads() {
@@ -217,6 +218,50 @@
   });
   $('invoiceBox').addEventListener('input', e => { if (e.target.closest('#lines') && $('invTotal')) $('invTotal').textContent = C.fmtMoney(C.invoiceTotal(readLines())); });
 
+  // ---------- money ----------
+  function renderMoney() {
+    const m = state.money, box = $('moneyBox'), month = state.month;
+    const tile = (lab, val, cls) => '<div class="tile"><div class="lab">' + lab + '</div><div class="val ' + (cls || '') + '">' + val + '</div></div>';
+    let html = '<div class="mhead"><button class="iconbtn" data-m="-1" aria-label="Previous month">&#8249;</button><b>' + C.monthLabel(month) + '</b><button class="iconbtn" data-m="1" aria-label="Next month">&#8250;</button></div>';
+    if (!m) { html += '<p class="muted">Loading…</p>'; box.innerHTML = html; return; }
+    html += '<div class="tiles">' + tile('Income', C.fmtMoney(m.income)) + tile('Expenses', C.fmtMoney(m.expenses)) + tile('Profit', C.fmtMoney(m.profit), m.profit >= 0 ? 'pos' : 'neg') + tile('Miles', C.fmtMiles(m.miles) || '0 mi') + '</div>';
+    if (m.owedTotal) html += '<div class="card"><div class="lab">Colleagues owe you</div>' + m.owed.map(o => '<div class="row1"><span>#' + o.num + (o.name ? ' ' + esc(o.name) : '') + (o.who ? ' · ' + esc(o.who) : '') + '</span><b>' + C.fmtMoney(o.expect) + '</b></div>').join('') + '<div class="total"><span>Total</span><span>' + C.fmtMoney(m.owedTotal) + '</span></div></div>';
+    html += '<div class="btnrow stack"><button class="primary" id="addExp">+ Expense</button></div><div id="expSheet"></div>';
+    html += '<div class="lab" style="margin:8px 2px 6px;color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.05em">Latest</div>';
+    html += m.recent.length ? '<div class="ops">' + m.recent.map(o => '<div class="op"><div class="t"><div>' + esc(o.title) + '</div><div>' + esc([o.date, o.note].filter(Boolean).join(' · ').slice(0, 80)) + '</div></div><div class="a ' + (o.kind === 'income' ? 'in' : o.kind === 'miles' ? 'mi' : '') + '">' + (o.kind === 'miles' ? C.fmtMiles(o.amount) : (o.kind === 'income' ? '+' : '-') + C.fmtMoney(o.amount)) + '</div></div>').join('') + '</div>' : '<p class="muted">No entries this month.</p>';
+    box.innerHTML = html;
+  }
+  async function loadMoney(month) {
+    state.month = month; state.money = null; render(); setBusy(true);
+    const r = await call('money', { month: month });
+    setBusy(false);
+    if (r.ok) { state.money = r; render(); } else if (!C.isUnauthorized(r)) toast(r.error || 'Could not load', true);
+  }
+  async function ensureMeta() { if (state.meta) return state.meta; const r = await call('meta'); if (r.ok) state.meta = r; return state.meta; }
+  async function expenseSheet() {
+    const meta = await ensureMeta(); if (!meta) { toast('Could not load categories', true); return; }
+    const opts = list => list.map(c => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join('');
+    $('expSheet').innerHTML = '<div class="sheet"><h3>New expense</h3>' + chips('scope', ['business', 'personal'], 'business') +
+      '<div class="row"><input id="exAmt" type="number" inputmode="decimal" step="0.01" placeholder="Amount $"><input id="exVendor" placeholder="Where (store, service)"></div>' +
+      '<select id="exCat" data-b="' + esc(JSON.stringify(meta.categories)) + '" data-p="' + esc(JSON.stringify(meta.personalCategories)) + '">' + opts(meta.categories) + '</select>' +
+      '<input id="exDesc" placeholder="What (optional)"><div class="row"><button class="secondary" data-close="exp">Cancel</button><button class="primary" id="goExp">Save</button></div></div>';
+  }
+  $('moneyBox').addEventListener('click', async e => {
+    const t = e.target.closest('button'); if (!t) return;
+    if (t.dataset.m) return loadMoney(C.shiftMonth(state.month, Number(t.dataset.m)));
+    if (t.id === 'addExp') return expenseSheet();
+    if (t.dataset.close === 'exp') { $('expSheet').innerHTML = ''; return; }
+    if (t.closest('[data-chips="scope"]')) { t.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === t)); const sel = $('exCat'), list = JSON.parse(sel.dataset[t.dataset.v === 'personal' ? 'p' : 'b']); sel.innerHTML = list.map(c => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join(''); return; }
+    if (t.id === 'goExp') {
+      const amt = Number($('exAmt').value), vendor = $('exVendor').value.trim();
+      if (!(amt > 0)) { toast('Enter the amount', true); return; } if (!vendor) { toast('Where was it?', true); return; }
+      t.disabled = true; setBusy(true);
+      const r = await call('expenseAdd', { amount: amt, vendor: vendor, category: $('exCat').value, scope: chipVal('scope'), description: $('exDesc').value.trim() });
+      setBusy(false);
+      if (r.ok) { toast(r.text ? r.text.split('\n')[0] : 'Saved'); loadMoney(state.month); } else { t.disabled = false; if (!C.isUnauthorized(r)) toast(r.error || 'Not saved', true); }
+    }
+  });
+
   // ---------- events ----------
   $('loginForm').addEventListener('submit', async e => {
     e.preventDefault();
@@ -233,8 +278,8 @@
   $('leadList').addEventListener('click', e => { const li = e.target.closest('li'); if (li) openLead(Number(li.dataset.num)); });
   $('back').addEventListener('click', () => { closeSheet(); if (state.view === 'invoice' && state.lead) { state.view = 'lead'; render(); openLead(state.lead.lead.num); return; } state.lead = null; state.view = 'leads'; render(); });
   $('leadCard').addEventListener('click', e => { const r = e.target.closest('[data-inv]'); if (r) openInvoice(r.dataset.inv); });
-  $('refresh').addEventListener('click', () => { if (state.view === 'lead' && state.lead) openLead(state.lead.lead.num); else if (state.view === 'leads') loadLeads(state.filter, true); });
-  $('nav').addEventListener('click', e => { const b = e.target.closest('button'); if (!b || b.disabled) return; state.view = b.dataset.go; render(); if (state.view === 'leads') loadLeads(state.filter, false); });
+  $('refresh').addEventListener('click', () => { if (state.view === 'lead' && state.lead) openLead(state.lead.lead.num); else if (state.view === 'leads') loadLeads(state.filter, true); else if (state.view === 'money') loadMoney(state.month); else if (state.view === 'invoice' && state.inv && state.inv.number) openInvoice(state.inv.number); });
+  $('nav').addEventListener('click', e => { const b = e.target.closest('button'); if (!b || b.disabled) return; closeSheet(); state.view = b.dataset.go; render(); if (state.view === 'leads') loadLeads(state.filter, false); if (state.view === 'money') loadMoney(state.month || new Date().toISOString().slice(0, 7)); });
   window.addEventListener('online', () => dispatch({ type: 'offline', on: false }));
   window.addEventListener('offline', () => dispatch({ type: 'offline', on: true }));
 

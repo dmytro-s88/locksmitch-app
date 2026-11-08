@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="assets/favicon.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
-<link rel="stylesheet" href="app.css?v=4">
+<link rel="stylesheet" href="app.css?v=5">
 </head>
 <body>
 <header class="top">
@@ -54,17 +54,17 @@
   </section>
 
   <section data-view="money" hidden>
-    <p class="muted">Money screen comes next.</p>
+    <div id="moneyBox"></div>
   </section>
 </main>
 
 <nav class="bottom" id="nav">
   <button data-go="leads" class="on"><span class="ico">&#9776;</span>Leads</button>
-  <button data-go="money" disabled><span class="ico">$</span>Money</button>
+  <button data-go="money"><span class="ico">$</span>Money</button>
 </nav>
 <div id="toast" class="toast" hidden></div>
 
-<script src="core.js?v=4"></script>
-<script src="app.js?v=4"></script>
+<script src="core.js?v=5"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>
