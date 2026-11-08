@@ -30,6 +30,7 @@
   C.invoiceTotal = function (lines) {
     return Math.round((lines || []).reduce(function (s, L) { return s + (Number(L.qty) || 1) * (Number(L.price) || 0); }, 0) * 100) / 100;
   };
+  C.paymentOptions = ['cash', 'zelle', 'card', 'square'];
   C.statusClass = function (key) { return 'st-' + (/^(site|new|pending|callback|scheduled|done|lost|spam)$/.test(key) ? key : 'new'); };
 
   /** State transitions. Pure: returns a new state object. */
@@ -42,6 +43,26 @@
       case 'key': s.key = ev.key || ''; s.view = s.key ? 'leads' : 'login'; return s;
       case 'view': s.view = ev.view; return s;
       case 'lead': s.lead = ev.lead; s.view = 'lead'; return s;
+      case 'leadPatch': {   // optimistic: apply the patch, remember the previous values for rollback
+        if (!s.lead || !s.lead.lead || s.lead.lead.num !== ev.num) return s;
+        const prev = {}; Object.keys(ev.patch || {}).forEach(function (k) { prev[k] = s.lead.lead[k]; });
+        s.lead = Object.assign({}, s.lead, { lead: Object.assign({}, s.lead.lead, ev.patch) });
+        s.pending = Object.assign({}, s.pending || {}); s.pending[ev.num] = true;
+        s.prev = Object.assign({}, s.prev || {}); s.prev[ev.num] = Object.assign({}, s.prev[ev.num] || {}, prev);
+        return s;
+      }
+      case 'leadRollback': {
+        const prev = (s.prev || {})[ev.num];
+        if (s.lead && s.lead.lead && s.lead.lead.num === ev.num && prev) s.lead = Object.assign({}, s.lead, { lead: Object.assign({}, s.lead.lead, prev) });
+        s.pending = Object.assign({}, s.pending || {}); delete s.pending[ev.num];
+        s.prev = Object.assign({}, s.prev || {}); delete s.prev[ev.num];
+        return s;
+      }
+      case 'leadSettled': {
+        s.pending = Object.assign({}, s.pending || {}); delete s.pending[ev.num];
+        s.prev = Object.assign({}, s.prev || {}); delete s.prev[ev.num];
+        return s;
+      }
       default: return s;
     }
   };

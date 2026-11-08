@@ -5,3 +5,9 @@ test('unauthorized clears key', () => { const s = C.reduce({ key: 'k', view: 'le
 test('sortLeads urgent first then newest', () => { const L = [{ num: 1, date: '2026-11-07', urgent: false }, { num: 2, date: '2026-11-05', urgent: true }, { num: 3, date: '2026-11-07', urgent: false }]; assert.deepEqual(C.sortLeads(L).map(x => x.num), [2, 3, 1]); });
 test('urls', () => { assert.equal(C.telUrl('6785495406'), 'tel:+16785495406'); assert.equal(C.telUrl(''), ''); assert.equal(C.mapsUrl(''), ''); assert.match(C.mapsUrl('440 Ansley Park Way, Cumming, GA'), /^https:\/\/maps\.apple\.com\/\?daddr=440%20Ansley/); });
 test('money and miles', () => { assert.equal(C.fmtMoney(1234), '$1,234.00'); assert.equal(C.fmtMiles(11.3), '11.3 mi'); assert.equal(C.fmtMiles(null), ''); assert.equal(C.invoiceTotal([{ qty: 2, price: 10.005 }, { qty: '', price: 5 }]), 25.01); });
+test('leadPatch then rollback restores', () => { const s0 = { lead: { lead: { num: 22, status: 'Needs contact', statusKey: 'new' } }, pending: {} };
+  const s1 = C.reduce(s0, { type: 'leadPatch', num: 22, patch: { status: 'Call back', statusKey: 'callback' } });
+  assert.equal(s1.lead.lead.status, 'Call back'); assert.equal(s1.pending[22], true);
+  const s2 = C.reduce(s1, { type: 'leadRollback', num: 22 }); assert.equal(s2.lead.lead.status, 'Needs contact'); assert.equal(s2.lead.lead.statusKey, 'new'); assert.equal(s2.pending[22], undefined); });
+test('leadPatch marks pending flag and leadSettled clears it', () => { const s1 = C.reduce({ lead: { lead: { num: 5 } }, pending: {} }, { type: 'leadPatch', num: 5, patch: { usd: 180 } });
+  assert.equal(s1.pending[5], true); const s2 = C.reduce(s1, { type: 'leadSettled', num: 5 }); assert.equal(s2.pending[5], undefined); assert.equal(s2.lead.lead.usd, 180); assert.deepEqual(C.paymentOptions, ['cash', 'zelle', 'card', 'square']); });

@@ -66,3 +66,18 @@ pre.notes { white-space: pre-wrap; font: inherit; margin: 0; color: var(--ink); 
 .toast.bad { border-color: var(--red); }
 .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--muted); border-top-color: var(--green); border-radius: 50%; animation: sp .8s linear infinite; vertical-align: -2px; }
 @keyframes sp { to { transform: rotate(360deg); } }
+
+.actgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 4px 0 14px; }
+.actgrid button { min-height: var(--tap); border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.actgrid button.done { background: var(--green); color: var(--on-green); border-color: var(--green); font-weight: 600; grid-column: 1 / -1; }
+.actgrid button.danger { color: #E89A9A; }
+.sheet { border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); padding: 12px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 10px; }
+.sheet h3 { margin: 0; font-size: 16px; font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button { min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 18px; background: transparent; }
+.chips button.on { border-color: var(--green); color: var(--green); }
+.sheet .row { display: flex; gap: 8px; }
+.sheet .row > * { flex: 1; }
+.preview { white-space: pre-wrap; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font-size: 15px; }
+.chk { display: flex; align-items: center; gap: 8px; }
+.chk input { width: 22px; min-height: 22px; }
