@@ -31,6 +31,7 @@
     return Math.round((lines || []).reduce(function (s, L) { return s + (Number(L.qty) || 1) * (Number(L.price) || 0); }, 0) * 100) / 100;
   };
   C.paymentOptions = ['cash', 'zelle', 'card', 'square'];
+  C.lineValid = function (L) { return !!(L && String(L.desc || '').trim()) && !isNaN(Number(L.price)) && String(L.price) !== '' && Number(L.price) >= 0; };
   C.statusClass = function (key) { return 'st-' + (/^(site|new|pending|callback|scheduled|done|lost|spam)$/.test(key) ? key : 'new'); };
 
   /** State transitions. Pure: returns a new state object. */
@@ -58,6 +59,7 @@
         s.prev = Object.assign({}, s.prev || {}); delete s.prev[ev.num];
         return s;
       }
+      case 'lines': s.inv = Object.assign({}, s.inv || {}, { lines: (ev.lines || []).slice() }); return s;
       case 'leadSettled': {
         s.pending = Object.assign({}, s.pending || {}); delete s.pending[ev.num];
         s.prev = Object.assign({}, s.prev || {}); delete s.prev[ev.num];

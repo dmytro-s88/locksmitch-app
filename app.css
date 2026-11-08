@@ -81,3 +81,12 @@ pre.notes { white-space: pre-wrap; font: inherit; margin: 0; color: var(--ink); 
 .preview { white-space: pre-wrap; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px; font-size: 15px; }
 .chk { display: flex; align-items: center; gap: 8px; }
 .chk input { width: 22px; min-height: 22px; }
+
+.lines { display: flex; flex-direction: column; gap: 8px; }
+.line { display: grid; grid-template-columns: 1fr 56px 84px 36px; gap: 6px; align-items: center; }
+.line input { padding: 6px 8px; min-height: 40px; }
+.line .x { min-height: 40px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: #E89A9A; }
+.total { display: flex; justify-content: space-between; font-size: 18px; font-weight: 600; margin: 10px 0; }
+.btnrow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
+.btnrow a, .btnrow button { min-height: var(--tap); border: 1px solid var(--line); border-radius: 10px; background: var(--surface); display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 15px; }
+.paidmark { display: inline-block; border: 2px solid var(--green); color: var(--green); border-radius: 6px; padding: 2px 10px; font-weight: 600; letter-spacing: .05em; }
