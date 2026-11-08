@@ -11,7 +11,8 @@
   ['open', 'today', 'done'].forEach(f => { const c = store.get('lm_leads_' + f, null); if (c) state.leads[f] = c; });
   state.view = state.key ? 'leads' : 'login';
 
-  function dispatch(ev) { state = C.reduce(state, ev); if (ev.type === 'lines') { renderInvoice(); return; } if (ev.type === 'unauthorized') store.del('lm_key'); if (ev.type === 'key') store.set('lm_key', state.key); if (ev.type === 'leads') store.set('lm_leads_' + ev.filter, state.leads[ev.filter]); render(); }
+  function dispatch(ev) { state = C.reduce(state, ev); if (ev.type === 'lines') { renderInvoice(); return; } if (ev.type === 'offline') { $('offline').hidden = !state.offline; return; }   // не перерисовываем: иначе теряются набранные строки чека и форма расхода
+    if (ev.type === 'unauthorized') { store.del('lm_key'); ['open', 'today', 'done'].forEach(f => store.del('lm_leads_' + f)); } if (ev.type === 'key') store.set('lm_key', state.key); if (ev.type === 'leads') store.set('lm_leads_' + ev.filter, state.leads[ev.filter]); render(); }
 
   /** One call to the bot. Plain POST with a JSON string body: no headers, so no CORS preflight. */
   async function call(action, params) {
@@ -60,7 +61,7 @@
     $('leadCard').innerHTML =
       '<div class="card"><div class="row1"><h2>' + esc([L.vehicle, L.service].filter(Boolean).join(' · ') || 'No vehicle') + '</h2><span class="pill ' + C.statusClass(L.statusKey) + '">' + esc(L.status) + '</span></div>' +
       (L.address ? '<div>' + esc(L.address) + (d.miles !== null && d.miles !== undefined ? ' <span class="muted">· ' + C.fmtMiles(d.miles) + '</span>' : '') + '</div>' : '<div class="muted">No address</div>') +
-      '<div class="sub">' + esc([L.source, L.date, L.phone ? '(' + L.phone.slice(0, 3) + ') ' + L.phone.slice(3, 6) + '-' + L.phone.slice(6) : '', L.colleague ? 'colleague job' : '', L.spanish ? 'Spanish' : ''].filter(Boolean).join(' · ')) + '</div></div>' +
+      '<div class="sub">' + esc([L.source, L.date, C.fmtPhone(L.phone), L.colleague ? 'colleague job' : '', L.spanish ? 'Spanish' : ''].filter(Boolean).join(' · ')) + '</div></div>' +
       '<div class="actions3">' + act(tel, '&#9742;', 'Call') + act(sms, '&#9993;', 'Text') + act(map, '&#10148;', 'Go') + '</div>' +
       ((L.quoted || L.usd || L.verdict || L.estimate) ? '<div class="card"><div class="lab">Job</div>' + [L.verdict ? esc(L.verdict) : '', L.estimate ? 'Estimate: ' + esc(L.estimate) : '', L.quoted ? 'Quoted to customer: ' + C.fmtMoney(L.quoted) : '', L.usd ? 'Received: ' + C.fmtMoney(L.usd) : ''].filter(Boolean).join('<br>') + '</div>' : '') +
       (d.priceText ? '<div class="card"><div class="lab">Suggested price</div><pre class="notes">' + esc(d.priceText.replace(/^.*\n/, '')) + '</pre></div>' : '') +
@@ -95,7 +96,7 @@
   function openActionSheet(act) {
     const L = state.lead.lead;
     if (act === 'done') sheet('<h3>Done: how much did you get?</h3><div class="row"><input id="amt" type="number" inputmode="decimal" step="0.01" placeholder="Amount $" value="' + (L.quoted || '') + '"></div>' + chips('pay', C.paymentOptions, 'cash') +
-      (L.colleague ? '<label class="chk"><input type="checkbox" id="coll" checked> Colleague did this job (your share is counted, not income)</label>' : '') +
+      (L.colleague ? '<div class="sub">Colleague job: your share is counted, not income.</div>' : '') +
       '<div class="row"><button class="secondary" data-close="1">Cancel</button><button class="primary" id="goDone">Record</button></div>');
     else if (act === 'callback' || act === 'scheduled' || act === 'lost') sheet('<h3>' + { callback: 'Call back', scheduled: 'Scheduled', lost: 'Lost' }[act] + '</h3><input id="nt" placeholder="' + (act === 'scheduled' ? 'When, e.g. tomorrow 10 am' : 'Note (optional)') + '"><div class="row"><button class="secondary" data-close="1">Cancel</button><button class="primary" id="goStatus" data-st="' + act + '">Save</button></div>');
     else if (act === 'note') sheet('<h3>Note</h3><textarea id="nt" rows="3" placeholder="What to remember"></textarea><div class="row"><button class="secondary" data-close="1">Cancel</button><button class="primary" id="goNote">Save</button></div>');
@@ -108,7 +109,7 @@
     const r = await call('leadSms', { num: state.lead.lead.num, kind: kind, price: price || 0, send: false });
     setBusy(false);
     if (!r.ok) { if (!C.isUnauthorized(r)) toast(r.error || 'No text', true); return; }
-    sheet('<h3>' + (r.already ? 'Already sent earlier' : 'Text to (' + r.phone.slice(0, 3) + ') ' + r.phone.slice(3, 6) + '-' + r.phone.slice(6)) + '</h3><div class="preview">' + esc(r.text) + '</div>' +
+    sheet('<h3>' + (r.already ? 'Already sent earlier' : 'Text to ' + C.fmtPhone(r.phone)) + '</h3><div class="preview">' + esc(r.text) + '</div>' +
       '<div class="row"><button class="secondary" data-close="1">Cancel</button>' + (r.already ? '' : '<button class="primary" id="goSend" data-kind="' + kind + '" data-price="' + (price || 0) + '">Send</button>') + '</div>');
   }
   async function smsSend(kind, price) {
@@ -117,7 +118,7 @@
     const r = await call('leadSms', { num: num, kind: kind, price: price || 0, send: true });
     setBusy(false);
     if (r.ok && r.sent) { toast('Text sent'); if (kind === 'price') { ['open', 'today', 'done'].forEach(f => store.del('lm_leads_' + f)); state.leads = {}; openLead(num); } }
-    else if (!C.isUnauthorized(r)) toast((r.error || 'Not sent') + '. Send it yourself:\n' + (r.text || ''), true);
+    else if (!C.isUnauthorized(r)) { toast(r.error || 'Not sent', true); if (r.text) sheet('<h3>Not sent. Send it yourself:</h3><div class="preview">' + esc(r.text) + '</div><div class="row"><button class="secondary" data-close="1">Close</button>' + (C.smsUrl(state.lead.lead.phone) ? '<a class="primary" style="display:flex;align-items:center;justify-content:center;text-decoration:none;border-radius:10px" href="' + esc(C.smsUrl(state.lead.lead.phone) + '&body=' + encodeURIComponent(r.text)) + '">Open Messages</a>' : '') + '</div>'); }
   }
 
   $('leadActions').addEventListener('click', e => { const b = e.target.closest('button[data-act]'); if (b && !b.disabled) openActionSheet(b.dataset.act); });
@@ -126,7 +127,7 @@
     if (t.dataset.close) return closeSheet();
     if (t.closest('[data-chips]')) { t.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === t)); return; }
     const L = state.lead.lead;
-    if (t.id === 'goDone') { const amt = Number($('amt').value); if (!(amt > 0)) { toast('Enter the amount', true); return; } const pay = chipVal('pay'); const coll = $('coll') && $('coll').checked;
+    if (t.id === 'goDone') { const amt = Number($('amt').value); if (!(amt > 0)) { toast('Enter the amount', true); return; } const pay = chipVal('pay'); const coll = !!L.colleague;
       return leadAction('leadDone', { amount: amt, payment: pay, colleague: coll ? 'colleague' : '' }, { status: 'Done', statusKey: 'done', usd: coll ? L.usd : amt }, 'Recorded ' + C.fmtMoney(amt)); }
     if (t.id === 'goStatus') { const st = t.dataset.st, lab = { callback: ['Call back', 'callback'], scheduled: ['Scheduled', 'scheduled'], lost: ['Lost', 'lost'] }[st]; return leadAction('leadStatus', { status: st, note: $('nt').value.trim() }, { status: lab[0], statusKey: lab[1] }); }
     if (t.id === 'goNote') { const nt = $('nt').value.trim(); if (!nt) { toast('Write something first', true); return; } return leadAction('leadNote', { note: nt }, {}, 'Note saved'); }
@@ -200,12 +201,13 @@
   }
   async function invoicePaid(method) {
     const number = state.inv.number;
+    document.querySelectorAll('#invoiceBox [data-paid]').forEach(b => { b.disabled = true; });
     setBusy(true);
     const r = await call('invoicePaid', { number: number, method: method });
     setBusy(false);
     if (!r.ok) { if (!C.isUnauthorized(r)) toast(r.error || 'Not saved', true); return; }
     toast(r.text ? r.text.split('\n')[0] : 'Paid'); ['open', 'today', 'done'].forEach(f => store.del('lm_leads_' + f)); state.leads = {};
-    state.inv = r.invoice; render();
+    state.inv = r.invoice; render();   // repeated:true тоже приходит сюда с первым текстом и тем же чеком
   }
   $('invoiceBox').addEventListener('click', e => {
     const t = e.target.closest('button, a'); if (!t || t.tagName === 'A') return;
@@ -216,7 +218,7 @@
     if (t.dataset.close === 'inv') { state.inv = null; state.view = 'lead'; render(); return; }
     if (t.dataset.paid) return invoicePaid(t.dataset.paid);
   });
-  $('invoiceBox').addEventListener('input', e => { if (e.target.closest('#lines') && $('invTotal')) $('invTotal').textContent = C.fmtMoney(C.invoiceTotal(readLines())); });
+  $('invoiceBox').addEventListener('input', e => { if (e.target.closest('#lines') && $('invTotal')) { const L = readLines(); if (state.inv) state.inv.lines = L; $('invTotal').textContent = C.fmtMoney(C.invoiceTotal(L)); } });   // набранное живёт в state: перерисовка не стирает
 
   // ---------- money ----------
   function renderMoney() {
@@ -276,10 +278,10 @@
   });
   $('tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.filter = b.dataset.filter; render(); loadLeads(state.filter, false); });
   $('leadList').addEventListener('click', e => { const li = e.target.closest('li'); if (li) openLead(Number(li.dataset.num)); });
-  $('back').addEventListener('click', () => { closeSheet(); if (state.view === 'invoice' && state.lead) { state.view = 'lead'; render(); openLead(state.lead.lead.num); return; } state.lead = null; state.view = 'leads'; render(); });
+  $('back').addEventListener('click', () => { closeSheet(); if (state.view === 'invoice' && state.lead) { state.view = 'lead'; render(); openLead(state.lead.lead.num); return; } state.lead = null; state.view = 'leads'; render(); if (C.needsLeads(state, state.filter, Date.now())) loadLeads(state.filter, true); });
   $('leadCard').addEventListener('click', e => { const r = e.target.closest('[data-inv]'); if (r) openInvoice(r.dataset.inv); });
   $('refresh').addEventListener('click', () => { if (state.view === 'lead' && state.lead) openLead(state.lead.lead.num); else if (state.view === 'leads') loadLeads(state.filter, true); else if (state.view === 'money') loadMoney(state.month); else if (state.view === 'invoice' && state.inv && state.inv.number) openInvoice(state.inv.number); });
-  $('nav').addEventListener('click', e => { const b = e.target.closest('button'); if (!b || b.disabled) return; closeSheet(); state.view = b.dataset.go; render(); if (state.view === 'leads') loadLeads(state.filter, false); if (state.view === 'money') loadMoney(state.month || new Date().toISOString().slice(0, 7)); });
+  $('nav').addEventListener('click', e => { const b = e.target.closest('button'); if (!b || b.disabled) return; closeSheet(); state.view = b.dataset.go; render(); if (state.view === 'leads') loadLeads(state.filter, false); if (state.view === 'money') loadMoney(state.month || C.currentMonth()); });
   window.addEventListener('online', () => dispatch({ type: 'offline', on: false }));
   window.addEventListener('offline', () => dispatch({ type: 'offline', on: true }));
 

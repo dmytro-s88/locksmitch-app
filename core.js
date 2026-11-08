@@ -33,6 +33,9 @@
   const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   C.monthLabel = function (ym) { const m = /^(\d{4})-(\d{2})$/.exec(String(ym || '')); return m ? MONTHS[Number(m[2]) - 1] + ' ' + m[1] : ''; };
   C.shiftMonth = function (ym, delta) { const m = /^(\d{4})-(\d{2})$/.exec(String(ym || '')); if (!m) return ''; let y = Number(m[1]), mo = Number(m[2]) - 1 + delta; y += Math.floor(mo / 12); mo = ((mo % 12) + 12) % 12; return y + '-' + ('0' + (mo + 1)).slice(-2); };
+  C.currentMonth = function (d) { d = d || new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); };
+  C.fmtPhone = function (p) { const d = String(p || '').replace(/\D/g, '').replace(/^1(\d{10})$/, '$1'); if (d.length === 10) return '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6); if (d.length === 7) return d.slice(0, 3) + '-' + d.slice(3); return d; };
+  C.needsLeads = function (state, filter, now) { const box = state && state.leads && state.leads[filter]; return !box || (now - (box.at || 0)) >= 60000; };
   C.paymentOptions = ['cash', 'zelle', 'card', 'square'];
   C.lineValid = function (L) { return !!(L && String(L.desc || '').trim()) && !isNaN(Number(L.price)) && String(L.price) !== '' && Number(L.price) >= 0; };
   C.statusClass = function (key) { return 'st-' + (/^(site|new|pending|callback|scheduled|done|lost|spam)$/.test(key) ? key : 'new'); };
@@ -42,7 +45,7 @@
     const s = Object.assign({}, state || {});
     switch (ev && ev.type) {
       case 'leads': s.leads = Object.assign({}, s.leads || {}); s.leads[ev.filter] = { at: ev.at || Date.now(), leads: C.sortLeads(ev.leads) }; return s;
-      case 'unauthorized': s.key = ''; s.view = 'login'; s.lead = null; return s;
+      case 'unauthorized': s.key = ''; s.view = 'login'; s.lead = null; s.leads = {}; return s;
       case 'offline': s.offline = !!ev.on; return s;
       case 'key': s.key = ev.key || ''; s.view = s.key ? 'leads' : 'login'; return s;
       case 'view': s.view = ev.view; return s;
