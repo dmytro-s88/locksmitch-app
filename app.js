@@ -160,7 +160,7 @@
       box.innerHTML = '<div class="card"><div class="lab">Customer</div><div><b>' + esc(inv.name || 'No name') + '</b>' + (inv.vehicle ? ' · ' + esc(inv.vehicle) : '') + '</div></div>' +
         '<div class="card"><div class="lab">Lines</div><div class="lines" id="lines">' + inv.lines.map(lineRow).join('') + '</div><button class="secondary" id="addLine" style="margin-top:8px;width:100%">+ Add line</button>' +
         '<div class="total"><span>Total</span><span id="invTotal">' + C.fmtMoney(C.invoiceTotal(inv.lines)) + '</span></div></div>' +
-        '<div class="btnrow"><button id="mkInvoice" class="primary">Create invoice</button><button id="mkEstimate">Create estimate</button><button data-close="inv">Cancel</button></div>';
+        '<div class="btnrow stack"><button id="mkInvoice" class="primary">Create invoice</button></div><div class="btnrow two"><button id="mkEstimate">Create estimate</button><button data-close="inv">Cancel</button></div>';
       return;
     }
     const kind = inv.type === 'estimate' ? 'Estimate' : 'Invoice';

@@ -1,6 +1,6 @@
 // App shell cache. The bot API is never cached (POST, and GET to script.google.com goes to the network).
-const CACHE = 'lm-app-v3';
-const SHELL = ['./', 'index.html', 'app.css?v=3', 'app.js?v=3', 'core.js?v=3', 'manifest.webmanifest', 'assets/logo.webp', 'assets/icon-192.png', 'assets/icon-512.png', 'assets/apple-touch-icon.png', 'assets/favicon.png'];
+const CACHE = 'lm-app-v4';
+const SHELL = ['./', 'index.html', 'app.css?v=4', 'app.js?v=4', 'core.js?v=4', 'manifest.webmanifest', 'assets/logo.webp', 'assets/icon-192.png', 'assets/icon-512.png', 'assets/apple-touch-icon.png', 'assets/favicon.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
