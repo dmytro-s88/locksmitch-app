@@ -108,3 +108,14 @@ pre.notes { white-space: pre-wrap; font: inherit; margin: 0; color: var(--ink); 
 .op .a { white-space: nowrap; font-weight: 600; }
 .op .a.in { color: var(--green); }
 .op .a.mi { color: var(--teal); }
+
+/* loading: progress bar under the header, dimmed tapped row, spinner inside the pressed button */
+.bar { position: sticky; top: calc(60px + env(safe-area-inset-top)); z-index: 5; height: 3px; background: var(--line); overflow: hidden; margin-top: -3px; }
+.bar i { display: block; height: 100%; width: 40%; background: var(--green); animation: slide 1s ease-in-out infinite; }
+@keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }
+.list li.loading { opacity: .55; }
+.list li.loading .row1 b::after { content: ''; display: inline-block; width: 12px; height: 12px; margin-left: 8px; border: 2px solid var(--muted); border-top-color: var(--green); border-radius: 50%; animation: sp .8s linear infinite; vertical-align: -1px; }
+button.loading { position: relative; color: transparent !important; pointer-events: none; }
+button.loading::after { content: ''; position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; border: 2px solid rgba(234,240,236,.35); border-top-color: var(--ink); border-radius: 50%; animation: sp .8s linear infinite; }
+button.primary.loading::after { border-color: rgba(11,23,10,.3); border-top-color: var(--on-green); }
+main.dim { opacity: .7; transition: opacity .2s; }

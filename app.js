@@ -17,9 +17,10 @@
   /** One call to the bot. Plain POST with a JSON string body: no headers, so no CORS preflight. */
   async function call(action, params) {
     const body = JSON.stringify(Object.assign({ action: action, key: state.key }, params || {}));
-    let text;
+    let text; setBusy(true);
     try { const r = await fetch(API, { method: 'POST', body: body, redirect: 'follow' }); text = await r.text(); dispatch({ type: 'offline', on: false }); }
     catch (e) { dispatch({ type: 'offline', on: true }); return { ok: false, error: 'No connection' }; }
+    finally { setBusy(false); }
     const resp = C.parseResponse(text);
     if (C.isUnauthorized(resp)) { dispatch({ type: 'unauthorized' }); toast('Signed out. Send /app to the bot for a new code.', true); }
     return resp;
@@ -27,7 +28,10 @@
 
   let toastT = 0;
   function toast(msg, bad) { const t = $('toast'); t.textContent = msg; t.className = 'toast' + (bad ? ' bad' : ''); t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, bad ? 5000 : 2500); }
-  function setBusy(on) { state.busy = on; $('refresh').innerHTML = on ? '<span class="spin"></span>' : '&#8635;'; }
+  let busyN = 0;
+  function setBusy(on) { busyN = Math.max(0, busyN + (on ? 1 : -1)); state.busy = busyN > 0; $('bar').hidden = !state.busy; $('refresh').innerHTML = state.busy ? '<span class="spin"></span>' : '&#8635;'; }
+  /** Spinner inside the pressed button while fn runs; the button is disabled meanwhile */
+  async function withBtn(btn, fn) { if (btn) { btn.classList.add('loading'); btn.disabled = true; } try { return await fn(); } finally { if (btn && btn.isConnected) { btn.classList.remove('loading'); btn.disabled = false; } } }
 
   // ---------- screens ----------
   function render() {
@@ -84,8 +88,9 @@
   const chipVal = name => { const b = document.querySelector('[data-chips="' + name + '"] button.on'); return b ? b.dataset.v : ''; };
 
   /** Optimistic lead action: patch now, call the bot, reload the card on success, roll back on error. */
-  async function leadAction(action, params, patch, okMsg) {
+  async function leadAction(action, params, patch, okMsg, btn) {
     const num = state.lead.lead.num;
+    if (btn) { btn.classList.add('loading'); btn.disabled = true; }
     dispatch({ type: 'leadPatch', num: num, patch: patch || {} });
     closeSheet();
     const r = await call(action, Object.assign({ num: num }, params));
@@ -105,51 +110,49 @@
     else if (act === 'invoice') openInvoiceDraft();
   }
   async function smsPreview(kind, price) {
-    setBusy(true);
     const r = await call('leadSms', { num: state.lead.lead.num, kind: kind, price: price || 0, send: false });
-    setBusy(false);
     if (!r.ok) { if (!C.isUnauthorized(r)) toast(r.error || 'No text', true); return; }
     sheet('<h3>' + (r.already ? 'Already sent earlier' : 'Text to ' + C.fmtPhone(r.phone)) + '</h3><div class="preview">' + esc(r.text) + '</div>' +
       '<div class="row"><button class="secondary" data-close="1">Cancel</button>' + (r.already ? '' : '<button class="primary" id="goSend" data-kind="' + kind + '" data-price="' + (price || 0) + '">Send</button>') + '</div>');
   }
   async function smsSend(kind, price) {
     const num = state.lead.lead.num;
-    closeSheet(); setBusy(true);
+    closeSheet();
     const r = await call('leadSms', { num: num, kind: kind, price: price || 0, send: true });
-    setBusy(false);
     if (r.ok && r.sent) { toast('Text sent'); if (kind === 'price') { ['open', 'today', 'done'].forEach(f => store.del('lm_leads_' + f)); state.leads = {}; openLead(num); } }
     else if (!C.isUnauthorized(r)) { toast(r.error || 'Not sent', true); if (r.text) sheet('<h3>Not sent. Send it yourself:</h3><div class="preview">' + esc(r.text) + '</div><div class="row"><button class="secondary" data-close="1">Close</button>' + (C.smsUrl(state.lead.lead.phone) ? '<a class="primary" style="display:flex;align-items:center;justify-content:center;text-decoration:none;border-radius:10px" href="' + esc(C.smsUrl(state.lead.lead.phone) + '&body=' + encodeURIComponent(r.text)) + '">Open Messages</a>' : '') + '</div>'); }
   }
 
-  $('leadActions').addEventListener('click', e => { const b = e.target.closest('button[data-act]'); if (b && !b.disabled) openActionSheet(b.dataset.act); });
+  $('leadActions').addEventListener('click', e => { const b = e.target.closest('button[data-act]'); if (!b || b.disabled) return; const act = b.dataset.act; if (act === 'confirm' || act === 'thanks') withBtn(b, () => smsPreview(act, 0)); else if (act === 'invoice') withBtn(b, openInvoiceDraft); else openActionSheet(act); });
   $('sheet').addEventListener('click', e => {
     const t = e.target.closest('button'); if (!t) return;
     if (t.dataset.close) return closeSheet();
     if (t.closest('[data-chips]')) { t.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === t)); return; }
     const L = state.lead.lead;
+    const B = t;
     if (t.id === 'goDone') { const amt = Number($('amt').value); if (!(amt > 0)) { toast('Enter the amount', true); return; } const pay = chipVal('pay'); const coll = !!L.colleague;
-      return leadAction('leadDone', { amount: amt, payment: pay, colleague: coll ? 'colleague' : '' }, { status: 'Done', statusKey: 'done', usd: coll ? L.usd : amt }, 'Recorded ' + C.fmtMoney(amt)); }
-    if (t.id === 'goStatus') { const st = t.dataset.st, lab = { callback: ['Call back', 'callback'], scheduled: ['Scheduled', 'scheduled'], lost: ['Lost', 'lost'] }[st]; return leadAction('leadStatus', { status: st, note: $('nt').value.trim() }, { status: lab[0], statusKey: lab[1] }); }
-    if (t.id === 'goNote') { const nt = $('nt').value.trim(); if (!nt) { toast('Write something first', true); return; } return leadAction('leadNote', { note: nt }, {}, 'Note saved'); }
-    if (t.id === 'goQuote') { const pr = Number($('pr').value); if (!(pr > 0)) { toast('Enter the price', true); return; } return leadAction('leadQuote', { price: pr }, { quoted: pr }, 'Quoted ' + C.fmtMoney(pr)); }
-    if (t.id === 'goPricePreview') { const pr = Number($('pr').value); if (!(pr > 0)) { toast('Enter the price', true); return; } return smsPreview('price', pr); }
-    if (t.id === 'goSend') return smsSend(t.dataset.kind, Number(t.dataset.price) || 0);
+      return leadAction('leadDone', { amount: amt, payment: pay, colleague: coll ? 'colleague' : '' }, { status: 'Done', statusKey: 'done', usd: coll ? L.usd : amt }, 'Recorded ' + C.fmtMoney(amt), B); }
+    if (t.id === 'goStatus') { const st = t.dataset.st, lab = { callback: ['Call back', 'callback'], scheduled: ['Scheduled', 'scheduled'], lost: ['Lost', 'lost'] }[st]; return leadAction('leadStatus', { status: st, note: $('nt').value.trim() }, { status: lab[0], statusKey: lab[1] }, '', B); }
+    if (t.id === 'goNote') { const nt = $('nt').value.trim(); if (!nt) { toast('Write something first', true); return; } return leadAction('leadNote', { note: nt }, {}, 'Note saved', B); }
+    if (t.id === 'goQuote') { const pr = Number($('pr').value); if (!(pr > 0)) { toast('Enter the price', true); return; } return leadAction('leadQuote', { price: pr }, { quoted: pr }, 'Quoted ' + C.fmtMoney(pr), B); }
+    if (t.id === 'goPricePreview') { const pr = Number($('pr').value); if (!(pr > 0)) { toast('Enter the price', true); return; } return withBtn(B, () => smsPreview('price', pr)); }
+    if (t.id === 'goSend') return withBtn(B, () => smsSend(t.dataset.kind, Number(t.dataset.price) || 0));
   });
 
   // ---------- data ----------
   async function loadLeads(filter, force) {
     const box = state.leads[filter];
     if (!force && box && Date.now() - box.at < 60000) return;
-    setBusy(true);
+    $('main').classList.add('dim');
+    try { await loadLeadsInner(filter); } finally { $('main').classList.remove('dim'); }
+  }
+  async function loadLeadsInner(filter) {
     const r = await call('leads', { filter: filter });
-    setBusy(false);
     if (r.ok) dispatch({ type: 'leads', filter: filter, leads: r.leads, at: Date.now() });
     else if (!C.isUnauthorized(r)) toast(r.error || 'Could not load leads', true);
   }
   async function openLead(num) {
-    setBusy(true);
     const r = await call('lead', { num: num });
-    setBusy(false);
     if (r.ok) dispatch({ type: 'lead', lead: r }); else if (!C.isUnauthorized(r)) toast(r.error || 'Could not open the lead', true);
   }
 
@@ -175,26 +178,21 @@
   }
   function readLines() { return Array.from(document.querySelectorAll('#lines .line')).map(r => ({ desc: r.querySelector('[data-f="desc"]').value.trim(), qty: Number(r.querySelector('[data-f="qty"]').value) || 1, price: r.querySelector('[data-f="price"]').value === '' ? '' : Number(r.querySelector('[data-f="price"]').value) })); }
   async function openInvoiceDraft() {
-    setBusy(true);
     const r = await call('invoiceDraft', { num: state.lead.lead.num });
-    setBusy(false);
     if (!r.ok) { if (!C.isUnauthorized(r)) toast(r.error || 'Could not start an invoice', true); return; }
     state.inv = { number: '', name: r.draft.name, vehicle: r.draft.vehicle, lines: r.draft.lines.length ? r.draft.lines : [{ desc: '', qty: 1, price: '' }] };
     state.view = 'invoice'; render();
   }
   async function openInvoice(number) {
-    setBusy(true);
     const r = await call('invoiceGet', { number: number });
-    setBusy(false);
     if (!r.ok) { if (!C.isUnauthorized(r)) toast(r.error || 'Could not open the invoice', true); return; }
     state.inv = r.invoice; state.view = 'invoice'; render();
   }
   async function createInvoice(type) {
     const lines = readLines();
     if (!lines.length || !lines.every(C.lineValid)) { toast('Every line needs a description and a price', true); return; }
-    setBusy(true); $('mkInvoice').disabled = true; $('mkEstimate').disabled = true;
+    $('mkInvoice').disabled = true; $('mkEstimate').disabled = true;
     const r = await call('invoiceCreate', { num: state.lead.lead.num, lines: lines, type: type });
-    setBusy(false);
     if (!r.ok) { if (!C.isUnauthorized(r)) toast(r.error || 'Could not create', true); if ($('mkInvoice')) { $('mkInvoice').disabled = false; $('mkEstimate').disabled = false; } return; }
     toast((type === 'estimate' ? 'Estimate ' : 'Invoice ') + r.invoice.number + ' created, PDF is in Telegram too');
     state.inv = r.invoice; render();
@@ -202,9 +200,7 @@
   async function invoicePaid(method) {
     const number = state.inv.number;
     document.querySelectorAll('#invoiceBox [data-paid]').forEach(b => { b.disabled = true; });
-    setBusy(true);
     const r = await call('invoicePaid', { number: number, method: method });
-    setBusy(false);
     if (!r.ok) { if (!C.isUnauthorized(r)) toast(r.error || 'Not saved', true); return; }
     toast(r.text ? r.text.split('\n')[0] : 'Paid'); ['open', 'today', 'done'].forEach(f => store.del('lm_leads_' + f)); state.leads = {};
     state.inv = r.invoice; render();   // repeated:true тоже приходит сюда с первым текстом и тем же чеком
@@ -213,10 +209,10 @@
     const t = e.target.closest('button, a'); if (!t || t.tagName === 'A') return;
     if (t.id === 'addLine') { dispatch({ type: 'lines', lines: readLines().concat([{ desc: '', qty: 1, price: '' }]) }); return; }
     if (t.dataset.del !== undefined) { const L = readLines(); L.splice(Number(t.dataset.del), 1); dispatch({ type: 'lines', lines: L.length ? L : [{ desc: '', qty: 1, price: '' }] }); return; }
-    if (t.id === 'mkInvoice') return createInvoice('invoice');
-    if (t.id === 'mkEstimate') return createInvoice('estimate');
+    if (t.id === 'mkInvoice') return withBtn(t, () => createInvoice('invoice'));
+    if (t.id === 'mkEstimate') return withBtn(t, () => createInvoice('estimate'));
     if (t.dataset.close === 'inv') { state.inv = null; state.view = 'lead'; render(); return; }
-    if (t.dataset.paid) return invoicePaid(t.dataset.paid);
+    if (t.dataset.paid) return withBtn(t, () => invoicePaid(t.dataset.paid));
   });
   $('invoiceBox').addEventListener('input', e => { if (e.target.closest('#lines') && $('invTotal')) { const L = readLines(); if (state.inv) state.inv.lines = L; $('invTotal').textContent = C.fmtMoney(C.invoiceTotal(L)); } });   // набранное живёт в state: перерисовка не стирает
 
@@ -234,9 +230,8 @@
     box.innerHTML = html;
   }
   async function loadMoney(month) {
-    state.month = month; state.money = null; render(); setBusy(true);
+    state.month = month; state.money = null; render();
     const r = await call('money', { month: month });
-    setBusy(false);
     if (r.ok) { state.money = r; render(); } else if (!C.isUnauthorized(r)) toast(r.error || 'Could not load', true);
   }
   async function ensureMeta() { if (state.meta) return state.meta; const r = await call('meta'); if (r.ok) state.meta = r; return state.meta; }
@@ -251,16 +246,14 @@
   $('moneyBox').addEventListener('click', async e => {
     const t = e.target.closest('button'); if (!t) return;
     if (t.dataset.m) return loadMoney(C.shiftMonth(state.month, Number(t.dataset.m)));
-    if (t.id === 'addExp') return expenseSheet();
+    if (t.id === 'addExp') return withBtn(t, expenseSheet);
     if (t.dataset.close === 'exp') { $('expSheet').innerHTML = ''; return; }
     if (t.closest('[data-chips="scope"]')) { t.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === t)); const sel = $('exCat'), list = JSON.parse(sel.dataset[t.dataset.v === 'personal' ? 'p' : 'b']); sel.innerHTML = list.map(c => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join(''); return; }
     if (t.id === 'goExp') {
       const amt = Number($('exAmt').value), vendor = $('exVendor').value.trim();
       if (!(amt > 0)) { toast('Enter the amount', true); return; } if (!vendor) { toast('Where was it?', true); return; }
-      t.disabled = true; setBusy(true);
-      const r = await call('expenseAdd', { amount: amt, vendor: vendor, category: $('exCat').value, scope: chipVal('scope'), description: $('exDesc').value.trim() });
-      setBusy(false);
-      if (r.ok) { toast(r.text ? r.text.split('\n')[0] : 'Saved'); loadMoney(state.month); } else { t.disabled = false; if (!C.isUnauthorized(r)) toast(r.error || 'Not saved', true); }
+      const r = await withBtn(t, () => call('expenseAdd', { amount: amt, vendor: vendor, category: $('exCat').value, scope: chipVal('scope'), description: $('exDesc').value.trim() }));
+        if (r.ok) { toast(r.text ? r.text.split('\n')[0] : 'Saved'); loadMoney(state.month); } else { t.disabled = false; if (!C.isUnauthorized(r)) toast(r.error || 'Not saved', true); }
     }
   });
 
@@ -270,14 +263,12 @@
     const code = $('code').value.replace(/\D/g, '');
     $('loginErr').hidden = true;
     if (code.length !== 6) { $('loginErr').textContent = 'Enter the 6-digit code from the bot.'; $('loginErr').hidden = false; return; }
-    setBusy(true);
     const r = await call('auth', { code: code });
-    setBusy(false);
     if (r.ok && r.key) { $('code').value = ''; dispatch({ type: 'key', key: r.key }); loadLeads('open', true); }
     else { $('loginErr').textContent = r.error || 'Could not sign in'; $('loginErr').hidden = false; }
   });
   $('tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.filter = b.dataset.filter; render(); loadLeads(state.filter, false); });
-  $('leadList').addEventListener('click', e => { const li = e.target.closest('li'); if (li) openLead(Number(li.dataset.num)); });
+  $('leadList').addEventListener('click', e => { const li = e.target.closest('li'); if (!li || li.classList.contains('loading')) return; li.classList.add('loading'); openLead(Number(li.dataset.num)).finally(() => li.classList.remove('loading')); });
   $('back').addEventListener('click', () => { closeSheet(); if (state.view === 'invoice' && state.lead) { state.view = 'lead'; render(); openLead(state.lead.lead.num); return; } state.lead = null; state.view = 'leads'; render(); if (C.needsLeads(state, state.filter, Date.now())) loadLeads(state.filter, true); });
   $('leadCard').addEventListener('click', e => { const r = e.target.closest('[data-inv]'); if (r) openInvoice(r.dataset.inv); });
   $('refresh').addEventListener('click', () => { if (state.view === 'lead' && state.lead) openLead(state.lead.lead.num); else if (state.view === 'leads') loadLeads(state.filter, true); else if (state.view === 'money') loadMoney(state.month); else if (state.view === 'invoice' && state.inv && state.inv.number) openInvoice(state.inv.number); });
