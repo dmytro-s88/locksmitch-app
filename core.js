@@ -38,7 +38,7 @@
   C.currentMonth = function (d) { d = d || new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); };
   C.fmtPhone = function (p) { const d = String(p || '').replace(/\D/g, '').replace(/^1(\d{10})$/, '$1'); if (d.length === 10) return '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6); if (d.length === 7) return d.slice(0, 3) + '-' + d.slice(3); return d; };
   C.needsLeads = function (state, filter, now) { const box = state && state.leads && state.leads[filter]; return !box || (now - (box.at || 0)) >= 60000; };
-  C.paymentOptions = ['cash', 'zelle', 'card', 'square'];
+  C.paymentOptions = ['cash', 'check', 'zelle', 'card', 'square'];
   C.lineValid = function (L) { return !!(L && String(L.desc || '').trim()) && !isNaN(Number(L.price)) && String(L.price) !== '' && Number(L.price) >= 0; };
   /** Days for the Today tab picker: Today, Yesterday, then 'Fri 11/13' back to 6 days ago (local time). Pure. */
   C.dayOptions = function (now) {

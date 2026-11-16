@@ -127,3 +127,4 @@ main.dim { opacity: .7; transition: opacity .2s; }
 .addr { cursor: pointer; -webkit-tap-highlight-color: rgba(0,0,0,.08); }
 .addr:active { opacity: .6; }
 .copyico { opacity: .45; font-size: .9em; }
+.btnrow.four { grid-template-columns: repeat(4, 1fr); }
