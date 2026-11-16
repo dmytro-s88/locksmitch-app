@@ -23,7 +23,9 @@
   const digits10 = function (p) { const d = String(p || '').replace(/\D/g, ''); return d.length === 11 && d[0] === '1' ? d.slice(1) : d.length === 10 ? d : ''; };
   C.telUrl = function (phone) { const d = digits10(phone); return d ? 'tel:+1' + d : ''; };
   C.smsUrl = function (phone) { const d = digits10(phone); return d ? 'sms:+1' + d : ''; };
-  C.mapsUrl = function (address) { const a = String(address || '').trim(); return a ? 'https://maps.apple.com/?daddr=' + encodeURIComponent(a) : ''; };
+  // Google Maps: the https link works everywhere (Android opens the app); on iPhone the app is opened by its own scheme.
+  C.mapsUrl = function (address) { const a = String(address || '').trim(); return a ? 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(a) + '&travelmode=driving' : ''; };
+  C.gmapsAppUrl = function (address) { const a = String(address || '').trim(); return a ? 'comgooglemaps://?daddr=' + encodeURIComponent(a) + '&directionsmode=driving' : ''; };
 
   C.fmtMoney = function (n) { const v = Number(n) || 0; return (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
   C.fmtMiles = function (n) { return n === null || n === undefined || n === '' || isNaN(Number(n)) ? '' : (Math.round(Number(n) * 10) / 10) + ' mi'; };

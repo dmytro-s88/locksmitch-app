@@ -124,3 +124,6 @@ main.dim { opacity: .7; transition: opacity .2s; }
 .daymenu { flex-direction: row; flex-wrap: wrap; gap: 6px; padding: 8px; }
 .daymenu button { flex: 1 1 30%; min-height: 38px; border: 1px solid var(--line); background: var(--bg, transparent); border-radius: 10px; color: var(--ink); }
 .daymenu button.on { border-color: var(--green); }
+.addr { cursor: pointer; -webkit-tap-highlight-color: rgba(0,0,0,.08); }
+.addr:active { opacity: .6; }
+.copyico { opacity: .45; font-size: .9em; }

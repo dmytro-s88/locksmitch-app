@@ -26,6 +26,10 @@
     return resp;
   }
 
+  function copyText(t) {
+    const legacy = () => { const ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, t.length); let ok = false; try { ok = document.execCommand('copy'); } catch (_) {} ta.remove(); return ok; };
+    return navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(t).then(() => true, () => legacy()) : Promise.resolve(legacy());
+  }
   let toastT = 0;
   function toast(msg, bad) { const t = $('toast'); t.textContent = msg; t.className = 'toast' + (bad ? ' bad' : ''); t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, bad ? 5000 : 2500); }
   let busyN = 0;
@@ -67,9 +71,9 @@
     const act = (href, ico, label) => href ? '<a href="' + esc(href) + '"><span class="ico">' + ico + '</span>' + label + '</a>' : '<button disabled><span class="ico">' + ico + '</span>' + label + '</button>';
     $('leadCard').innerHTML =
       '<div class="card"><div class="row1"><h2>' + esc([L.vehicle, L.service].filter(Boolean).join(' · ') || 'No vehicle') + '</h2><span class="pill ' + C.statusClass(L.statusKey) + '">' + esc(C.statusText(L)) + '</span></div>' +
-      (L.address ? '<div>' + esc(L.address) + (d.miles !== null && d.miles !== undefined ? ' <span class="muted">· ' + C.fmtMiles(d.miles) + '</span>' : '') + '</div>' : '<div class="muted">No address</div>') +
+      (L.address ? '<div class="addr" data-copy="' + esc(L.address) + '" title="Tap to copy">' + esc(L.address) + ' <span class="copyico">&#10697;</span>' + (d.miles !== null && d.miles !== undefined ? ' <span class="muted">· ' + C.fmtMiles(d.miles) + '</span>' : '') + '</div>' : '<div class="muted">No address</div>') +
       '<div class="sub">' + esc([L.visit ? 'Visit: ' + L.visit : '', L.source, L.date, C.fmtPhone(L.phone), L.colleague ? 'colleague job' : '', L.spanish ? 'Spanish' : ''].filter(Boolean).join(' · ')) + '</div></div>' +
-      '<div class="actions3">' + act(tel, '&#9742;', 'Call') + act(sms, '&#9993;', 'Text') + act(map, '&#10148;', 'Go') + '</div>' +
+      '<div class="actions3">' + act(tel, '&#9742;', 'Call') + act(sms, '&#9993;', 'Text') + act(map, '&#10148;', 'Go').replace('<a ', '<a data-go="1" ') + '</div>' +
       ((L.quoted || L.usd || L.verdict || L.estimate) ? '<div class="card"><div class="lab">Job</div>' + [L.verdict ? esc(L.verdict) : '', L.estimate ? 'Estimate: ' + esc(L.estimate) : '', L.quoted ? 'Quoted to customer: ' + C.fmtMoney(L.quoted) : '', L.usd ? 'Received: ' + C.fmtMoney(L.usd) : ''].filter(Boolean).join('<br>') + '</div>' : '') +
       (d.priceText ? '<div class="card"><div class="lab">Suggested price</div><pre class="notes">' + esc(d.priceText.replace(/^.*\n/, '')) + '</pre></div>' : '') +
       (d.invoices && d.invoices.length ? '<div class="card"><div class="lab">Invoices</div>' + d.invoices.map(i => '<div class="row1" data-inv="' + esc(i.number) + '" style="cursor:pointer;padding:6px 0"><span>' + esc(i.type === 'estimate' ? 'Estimate ' : 'Invoice ') + esc(i.number) + (i.paid ? ' · paid ' + esc(i.paid.method) : '') + '</span><b>' + C.fmtMoney(i.total) + ' &#8250;</b></div>').join('') + '</div>' : '') +
@@ -278,7 +282,14 @@
   $('dayMenu').addEventListener('click', e => { const b = e.target.closest('button[data-day]'); if (!b) return; $('dayMenu').hidden = true; state.day = b.dataset.day; render(); loadLeads('today', false); });
   $('leadList').addEventListener('click', e => { const li = e.target.closest('li'); if (!li || li.classList.contains('loading')) return; li.classList.add('loading'); openLead(Number(li.dataset.num)).finally(() => li.classList.remove('loading')); });
   $('back').addEventListener('click', () => { closeSheet(); if (state.view === 'invoice' && state.lead) { state.view = 'lead'; render(); openLead(state.lead.lead.num); return; } state.lead = null; state.view = 'leads'; render(); if (C.needsLeads(state, C.leadsKey(state.filter, state.filter === 'today' ? state.day : ''), Date.now())) loadLeads(state.filter, true); });
-  $('leadCard').addEventListener('click', e => { const r = e.target.closest('[data-inv]'); if (r) openInvoice(r.dataset.inv); });
+  $('leadCard').addEventListener('click', e => {
+    const r = e.target.closest('[data-inv]'); if (r) { openInvoice(r.dataset.inv); return; }
+    const c = e.target.closest('[data-copy]'); if (c) { copyText(c.dataset.copy).then(ok => toast(ok ? 'Address copied' : 'Could not copy', !ok)); return; }
+    const g = e.target.closest('a[data-go]');
+    // iPhone: open the Google Maps app by its own scheme (a web link from the home-screen app would stay in the browser).
+    // No timed fallback: iOS may first ask "Open in Google Maps?", and a timer would also open the web page behind it.
+    if (g && /iPhone|iPad|iPod/.test(navigator.userAgent) && state.lead) { e.preventDefault(); location.href = C.gmapsAppUrl(state.lead.lead.address); }
+  });
   $('refresh').addEventListener('click', () => { if (state.view === 'lead' && state.lead) openLead(state.lead.lead.num); else if (state.view === 'leads') loadLeads(state.filter, true); else if (state.view === 'money') loadMoney(state.month); else if (state.view === 'invoice' && state.inv && state.inv.number) openInvoice(state.inv.number); });
   $('nav').addEventListener('click', e => { const b = e.target.closest('button'); if (!b || b.disabled) return; closeSheet(); state.view = b.dataset.go; render(); if (state.view === 'leads') loadLeads(state.filter, false); if (state.view === 'money') loadMoney(state.month || C.currentMonth()); });
   window.addEventListener('online', () => dispatch({ type: 'offline', on: false }));

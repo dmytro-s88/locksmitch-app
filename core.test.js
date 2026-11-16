@@ -3,7 +3,12 @@ test('parseResponse non-json', () => { const r = C.parseResponse('<html>Moved</h
 test('parseResponse ok', () => assert.deepEqual(C.parseResponse('{"ok":true,"a":1}'), { ok: true, a: 1 }));
 test('unauthorized clears key', () => { const s = C.reduce({ key: 'k', view: 'leads' }, { type: 'unauthorized' }); assert.equal(s.key, ''); assert.equal(s.view, 'login'); });
 test('sortLeads urgent first then newest', () => { const L = [{ num: 1, date: '2026-11-07', urgent: false }, { num: 2, date: '2026-11-05', urgent: true }, { num: 3, date: '2026-11-07', urgent: false }]; assert.deepEqual(C.sortLeads(L).map(x => x.num), [2, 3, 1]); });
-test('urls', () => { assert.equal(C.telUrl('6785495406'), 'tel:+16785495406'); assert.equal(C.telUrl(''), ''); assert.equal(C.mapsUrl(''), ''); assert.match(C.mapsUrl('440 Ansley Park Way, Cumming, GA'), /^https:\/\/maps\.apple\.com\/\?daddr=440%20Ansley/); });
+test('urls', () => { assert.equal(C.telUrl('6785495406'), 'tel:+16785495406'); assert.equal(C.telUrl(''), ''); assert.equal(C.mapsUrl(''), ''); });
+test('google maps urls', () => {
+  assert.equal(C.mapsUrl('440 Ansley Park Way, Cumming, GA'), 'https://www.google.com/maps/dir/?api=1&destination=440%20Ansley%20Park%20Way%2C%20Cumming%2C%20GA&travelmode=driving');
+  assert.equal(C.gmapsAppUrl('64 New Brunswick Ct'), 'comgooglemaps://?daddr=64%20New%20Brunswick%20Ct&directionsmode=driving');
+  assert.equal(C.gmapsAppUrl('  '), '');
+});
 test('money and miles', () => { assert.equal(C.fmtMoney(1234), '$1,234.00'); assert.equal(C.fmtMiles(11.3), '11.3 mi'); assert.equal(C.fmtMiles(null), ''); assert.equal(C.invoiceTotal([{ qty: 2, price: 10.005 }, { qty: '', price: 5 }]), 25.01); });
 test('leadPatch then rollback restores', () => { const s0 = { lead: { lead: { num: 22, status: 'Needs contact', statusKey: 'new' } }, pending: {} };
   const s1 = C.reduce(s0, { type: 'leadPatch', num: 22, patch: { status: 'Call back', statusKey: 'callback' } });
