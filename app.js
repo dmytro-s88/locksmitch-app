@@ -7,12 +7,12 @@
   const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const store = { get: (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }, del: k => { try { localStorage.removeItem(k); } catch (e) {} } };
 
-  let state = { key: store.get('lm_key', ''), view: 'login', filter: 'open', leads: {}, lead: null, offline: false, busy: false, pending: {}, prev: {}, sheet: false };
+  let state = { key: store.get('lm_key', ''), view: 'login', filter: 'open', day: '', leads: {}, lead: null, offline: false, busy: false, pending: {}, prev: {}, sheet: false };
   ['open', 'today', 'done'].forEach(f => { const c = store.get('lm_leads_' + f, null); if (c) state.leads[f] = c; });
   state.view = state.key ? 'leads' : 'login';
 
   function dispatch(ev) { state = C.reduce(state, ev); if (ev.type === 'lines') { renderInvoice(); return; } if (ev.type === 'offline') { $('offline').hidden = !state.offline; return; }   // не перерисовываем: иначе теряются набранные строки чека и форма расхода
-    if (ev.type === 'unauthorized') { store.del('lm_key'); ['open', 'today', 'done'].forEach(f => store.del('lm_leads_' + f)); } if (ev.type === 'key') store.set('lm_key', state.key); if (ev.type === 'leads') store.set('lm_leads_' + ev.filter, state.leads[ev.filter]); render(); }
+    if (ev.type === 'unauthorized') { store.del('lm_key'); ['open', 'today', 'done'].forEach(f => store.del('lm_leads_' + f)); } if (ev.type === 'key') store.set('lm_key', state.key); if (ev.type === 'leads' && ev.filter.indexOf(':') < 0) store.set('lm_leads_' + ev.filter, state.leads[ev.filter]); /* прошлые дни Today не храним */ render(); }
 
   /** One call to the bot. Plain POST with a JSON string body: no headers, so no CORS preflight. */
   async function call(action, params) {
@@ -50,7 +50,10 @@
 
   function renderLeads() {
     document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.filter === state.filter));
-    const box = state.leads[state.filter], leads = box ? box.leads : [];
+    const days = C.dayOptions(Date.now()), dayOpt = days.find(d => d.ymd === state.day);
+    if (state.day && !dayOpt) state.day = '';   // выбранный день ушёл из недели (приложение открыто с вчера)
+    document.querySelector('#tabs button[data-filter="today"]').textContent = (dayOpt ? dayOpt.label : 'Today') + (state.filter === 'today' ? ' \u25BE' : '');
+    const box = state.leads[C.leadsKey(state.filter, state.day)], leads = box ? box.leads : [];
     $('leadList').innerHTML = leads.map(L => '<li data-num="' + L.num + '" class="' + (L.urgent ? 'urgent' : '') + '">' +
       '<div class="row1"><b>#' + L.num + (L.name ? ' ' + esc(L.name) : '') + '</b><span class="pill ' + C.statusClass(L.statusKey) + '">' + esc(C.statusText(L)) + '</span></div>' +
       '<div>' + esc([L.vehicle, L.service].filter(Boolean).join(' · ')) + '</div>' +
@@ -141,14 +144,15 @@
 
   // ---------- data ----------
   async function loadLeads(filter, force) {
-    const box = state.leads[filter];
+    const box = state.leads[C.leadsKey(filter, filter === 'today' ? state.day : '')];
     if (!force && box && Date.now() - box.at < 60000) return;
     $('main').classList.add('dim');
     try { await loadLeadsInner(filter); } finally { $('main').classList.remove('dim'); }
   }
   async function loadLeadsInner(filter) {
-    const r = await call('leads', { filter: filter });
-    if (r.ok) dispatch({ type: 'leads', filter: filter, leads: r.leads, at: Date.now() });
+    const day = filter === 'today' ? state.day : '';
+    const r = await call('leads', { filter: filter, day: day });
+    if (r.ok) dispatch({ type: 'leads', filter: C.leadsKey(filter, day), leads: r.leads, at: Date.now() });
     else if (!C.isUnauthorized(r)) toast(r.error || 'Could not load leads', true);
   }
   async function openLead(num) {
@@ -267,9 +271,13 @@
     if (r.ok && r.key) { $('code').value = ''; dispatch({ type: 'key', key: r.key }); loadLeads('open', true); }
     else { $('loginErr').textContent = r.error || 'Could not sign in'; $('loginErr').hidden = false; }
   });
-  $('tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; state.filter = b.dataset.filter; render(); loadLeads(state.filter, false); });
+  $('tabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.filter === 'today' && state.filter === 'today' && $('dayMenu').hidden) {   // второй тап по Today: выбрать день недели
+      $('dayMenu').innerHTML = C.dayOptions(Date.now()).map((d, i) => '<button data-day="' + (i ? d.ymd : '') + '" class="' + ((i ? d.ymd : '') === state.day ? 'on' : '') + '">' + d.label + '</button>').join(''); $('dayMenu').hidden = false; return; }
+    $('dayMenu').hidden = true; state.filter = b.dataset.filter; render(); loadLeads(state.filter, false); });
+  $('dayMenu').addEventListener('click', e => { const b = e.target.closest('button[data-day]'); if (!b) return; $('dayMenu').hidden = true; state.day = b.dataset.day; render(); loadLeads('today', false); });
   $('leadList').addEventListener('click', e => { const li = e.target.closest('li'); if (!li || li.classList.contains('loading')) return; li.classList.add('loading'); openLead(Number(li.dataset.num)).finally(() => li.classList.remove('loading')); });
-  $('back').addEventListener('click', () => { closeSheet(); if (state.view === 'invoice' && state.lead) { state.view = 'lead'; render(); openLead(state.lead.lead.num); return; } state.lead = null; state.view = 'leads'; render(); if (C.needsLeads(state, state.filter, Date.now())) loadLeads(state.filter, true); });
+  $('back').addEventListener('click', () => { closeSheet(); if (state.view === 'invoice' && state.lead) { state.view = 'lead'; render(); openLead(state.lead.lead.num); return; } state.lead = null; state.view = 'leads'; render(); if (C.needsLeads(state, C.leadsKey(state.filter, state.filter === 'today' ? state.day : ''), Date.now())) loadLeads(state.filter, true); });
   $('leadCard').addEventListener('click', e => { const r = e.target.closest('[data-inv]'); if (r) openInvoice(r.dataset.inv); });
   $('refresh').addEventListener('click', () => { if (state.view === 'lead' && state.lead) openLead(state.lead.lead.num); else if (state.view === 'leads') loadLeads(state.filter, true); else if (state.view === 'money') loadMoney(state.month); else if (state.view === 'invoice' && state.inv && state.inv.number) openInvoice(state.inv.number); });
   $('nav').addEventListener('click', e => { const b = e.target.closest('button'); if (!b || b.disabled) return; closeSheet(); state.view = b.dataset.go; render(); if (state.view === 'leads') loadLeads(state.filter, false); if (state.view === 'money') loadMoney(state.month || C.currentMonth()); });

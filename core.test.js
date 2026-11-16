@@ -26,3 +26,15 @@ test('statusText shows visit time for scheduled leads', () => {
   assert.equal(C.statusText({ status: 'Needs contact', statusKey: 'new', visit: 'Mon 11/16' }), 'Needs contact');
   assert.equal(C.statusText({ status: 'Done', statusKey: 'done' }), 'Done');
   assert.equal(C.statusText({ status: 'Scheduled', statusKey: 'scheduled' }), 'Scheduled'); });
+test('dayOptions: today, yesterday, then weekday dates for a week', () => {
+  const now = new Date(2026, 10, 15, 19, 43).getTime();   // Sun Nov 15 2026, local time
+  const o = C.dayOptions(now);
+  assert.equal(o.length, 7);
+  assert.deepEqual(o[0], { ymd: '2026-11-15', label: 'Today' });
+  assert.deepEqual(o[1], { ymd: '2026-11-14', label: 'Yesterday' });
+  assert.deepEqual(o[2], { ymd: '2026-11-13', label: 'Fri 11/13' });
+  assert.deepEqual(o[6], { ymd: '2026-11-09', label: 'Mon 11/9' }); });
+test('leadsKey separates days of the Today tab', () => {
+  assert.equal(C.leadsKey('open', '2026-11-14'), 'open');
+  assert.equal(C.leadsKey('today', ''), 'today');
+  assert.equal(C.leadsKey('today', '2026-11-14'), 'today:2026-11-14'); });

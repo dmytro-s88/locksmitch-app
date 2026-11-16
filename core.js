@@ -38,6 +38,18 @@
   C.needsLeads = function (state, filter, now) { const box = state && state.leads && state.leads[filter]; return !box || (now - (box.at || 0)) >= 60000; };
   C.paymentOptions = ['cash', 'zelle', 'card', 'square'];
   C.lineValid = function (L) { return !!(L && String(L.desc || '').trim()) && !isNaN(Number(L.price)) && String(L.price) !== '' && Number(L.price) >= 0; };
+  /** Days for the Today tab picker: Today, Yesterday, then 'Fri 11/13' back to 6 days ago (local time). Pure. */
+  C.dayOptions = function (now) {
+    const W = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], out = [], base = new Date(now);
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(base.getFullYear(), base.getMonth(), base.getDate() - i);
+      const ymd = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      out.push({ ymd: ymd, label: i === 0 ? 'Today' : i === 1 ? 'Yesterday' : W[d.getDay()] + ' ' + (d.getMonth() + 1) + '/' + d.getDate() });
+    }
+    return out;
+  };
+  /** Cache key for a lead list: each day of the Today tab is kept apart. Pure. */
+  C.leadsKey = function (filter, day) { return filter === 'today' && day ? 'today:' + day : filter; };
   /** Status label for the pill: scheduled leads show when (Dima 2026-11-15). Pure. */
   C.statusText = function (L) {
     if (!L || L.statusKey !== 'scheduled' || L.visit === undefined) return (L && L.status) || '';   // undefined: bot not yet sending visit

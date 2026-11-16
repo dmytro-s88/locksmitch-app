@@ -119,3 +119,8 @@ button.loading { position: relative; color: transparent !important; pointer-even
 button.loading::after { content: ''; position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px; border: 2px solid rgba(234,240,236,.35); border-top-color: var(--ink); border-radius: 50%; animation: sp .8s linear infinite; }
 button.primary.loading::after { border-color: rgba(11,23,10,.3); border-top-color: var(--on-green); }
 main.dim { opacity: .7; transition: opacity .2s; }
+
+/* Today tab: day picker (yesterday, the week) */
+.daymenu { flex-direction: row; flex-wrap: wrap; gap: 6px; padding: 8px; }
+.daymenu button { flex: 1 1 30%; min-height: 38px; border: 1px solid var(--line); background: var(--bg, transparent); border-radius: 10px; color: var(--ink); }
+.daymenu button.on { border-color: var(--green); }
