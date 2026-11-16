@@ -40,7 +40,7 @@
   C.lineValid = function (L) { return !!(L && String(L.desc || '').trim()) && !isNaN(Number(L.price)) && String(L.price) !== '' && Number(L.price) >= 0; };
   /** Status label for the pill: scheduled leads show when (Dima 2026-11-15). Pure. */
   C.statusText = function (L) {
-    if (!L || L.statusKey !== 'scheduled') return (L && L.status) || '';
+    if (!L || L.statusKey !== 'scheduled' || L.visit === undefined) return (L && L.status) || '';   // undefined: bot not yet sending visit
     return (L.status || 'Scheduled') + ' · ' + (L.visit || 'no time set');
   };
   C.statusClass = function (key) { return 'st-' + (/^(site|new|pending|callback|scheduled|done|lost|spam)$/.test(key) ? key : 'new'); };

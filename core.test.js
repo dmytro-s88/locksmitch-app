@@ -24,4 +24,5 @@ test('statusText shows visit time for scheduled leads', () => {
   assert.equal(C.statusText({ status: 'Scheduled', statusKey: 'scheduled', visit: 'Mon 11/16, 12:00 PM' }), 'Scheduled · Mon 11/16, 12:00 PM');
   assert.equal(C.statusText({ status: 'Scheduled', statusKey: 'scheduled', visit: '' }), 'Scheduled · no time set');
   assert.equal(C.statusText({ status: 'Needs contact', statusKey: 'new', visit: 'Mon 11/16' }), 'Needs contact');
-  assert.equal(C.statusText({ status: 'Done', statusKey: 'done' }), 'Done'); });
+  assert.equal(C.statusText({ status: 'Done', statusKey: 'done' }), 'Done');
+  assert.equal(C.statusText({ status: 'Scheduled', statusKey: 'scheduled' }), 'Scheduled'); });
