@@ -241,10 +241,11 @@
     if (!m) { html += '<p class="muted">Loading…</p>'; box.innerHTML = html; return; }
     if (isDay) html += '<div class="today"><div class="lab">Earned</div><div class="big">' + C.fmtMoney(m.income) + '</div><div class="muted">' + esc(C.daySummary(m.recent, m.miles)) + '</div></div>';
     html += '<div class="tiles">' + tile('Income', C.fmtMoney(m.income)) + tile('Expenses', C.fmtMoney(m.expenses)) + tile('Profit', C.fmtMoney(m.profit), m.profit >= 0 ? 'pos' : 'neg') + tile('Miles', C.fmtMiles(m.miles) || '0 mi') + '</div>';
+    if (m.checks && m.checks.length) html += '<div class="card checks"><div class="lab">Checks not cashed</div>' + m.checks.map(c => '<div class="row1 chk"><span>' + esc(C.checkLine(c)) + '</span><b>' + C.fmtMoney(c.amount) + '</b><button data-cash="' + c.row + '" data-amt="' + c.amount + '">Cashed</button></div>').join('') + (m.checks.length > 1 ? '<div class="total"><span>Total</span><span>' + C.fmtMoney(m.checksTotal) + '</span></div>' : '') + '</div>';
     if (m.owedTotal && !isDay) html += '<div class="card"><div class="lab">Colleagues owe you</div>' + m.owed.map(o => '<div class="row1"><span>#' + o.num + (o.name ? ' ' + esc(o.name) : '') + (o.who ? ' · ' + esc(o.who) : '') + '</span><b>' + C.fmtMoney(o.expect) + '</b></div>').join('') + '<div class="total"><span>Total</span><span>' + C.fmtMoney(m.owedTotal) + '</span></div></div>';
     html += '<div class="btnrow stack"><button class="primary" id="addExp">+ Expense</button></div><div id="expSheet"></div>';
     html += '<div class="lab" style="margin:8px 2px 6px;color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.05em">' + (isDay ? 'This day' : 'Latest') + '</div>';
-    html += m.recent.length ? '<div class="ops">' + m.recent.map(o => '<div class="op"><div class="t"><div>' + esc(o.title) + '</div><div>' + esc([o.date, o.note].filter(Boolean).join(' · ').slice(0, 80)) + '</div></div><div class="a ' + (o.kind === 'income' ? 'in' : o.kind === 'miles' ? 'mi' : '') + '">' + (o.kind === 'miles' ? C.fmtMiles(o.amount) : (o.kind === 'income' ? '+' : '-') + C.fmtMoney(o.amount)) + '</div></div>').join('') + '</div>' : '<p class="muted">' + (isDay ? 'Nothing recorded this day.' : 'No entries this month.') + '</p>';
+    html += m.recent.length ? '<div class="ops">' + m.recent.map(o => '<div class="op"><div class="t"><div>' + esc(o.title) + '</div><div>' + esc([o.date, o.note].filter(Boolean).join(' · ').slice(0, 80)) + (o.check ? ' <span class="ck ' + (o.check === 'cashed' ? 'cashed' : 'uncashed') + '">' + (o.check === 'cashed' ? 'check cashed' : 'check not cashed') + '</span>' : '') + '</div></div><div class="a ' + (o.kind === 'income' ? 'in' : o.kind === 'miles' ? 'mi' : '') + '">' + (o.kind === 'miles' ? C.fmtMiles(o.amount) : (o.kind === 'income' ? '+' : '-') + C.fmtMoney(o.amount)) + '</div></div>').join('') + '</div>' : '<p class="muted">' + (isDay ? 'Nothing recorded this day.' : 'No entries this month.') + '</p>';
     box.innerHTML = html;
   }
   async function loadMoney(month) {
@@ -270,6 +271,11 @@
     if (t.dataset.m) return loadMoney(C.shiftMonth(state.month, Number(t.dataset.m)));
     if (t.dataset.d) { const nd = C.shiftDay(state.moneyDay, Number(t.dataset.d)); if (nd > C.currentDay()) return; state.moneyDay = nd; return loadMoney(); }
     if (t.dataset.mode) { if (t.dataset.mode === state.moneyMode) { if (t.dataset.mode === 'day' && state.moneyDay !== C.currentDay()) { state.moneyDay = C.currentDay(); return loadMoney(); } return; } state.moneyMode = t.dataset.mode; if (state.moneyMode === 'day') state.moneyDay = C.currentDay(); return loadMoney(); }
+    if (t.dataset.cash) {
+      const r = await withBtn(t, () => call('checkCashed', { row: Number(t.dataset.cash), amount: Number(t.dataset.amt) }));
+      if (r.ok) { toast(r.text || 'Check cashed'); loadMoney(); } else if (!C.isUnauthorized(r)) toast(r.error || 'Not saved', true);
+      return;
+    }
     if (t.id === 'addExp') return withBtn(t, expenseSheet);
     if (t.dataset.close === 'exp') { $('expSheet').innerHTML = ''; return; }
     if (t.closest('[data-chips="scope"]')) { t.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === t)); const sel = $('exCat'), list = JSON.parse(sel.dataset[t.dataset.v === 'personal' ? 'p' : 'b']); sel.innerHTML = list.map(c => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join(''); return; }

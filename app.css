@@ -133,3 +133,17 @@ main.dim { opacity: .7; transition: opacity .2s; }
 .today .big { font-size: 34px; font-weight: 700; color: var(--green); margin: 2px 0; font-variant-numeric: tabular-nums; }
 .mhead .iconbtn:disabled { opacity: .3; }
 .btnrow button.primary { background: var(--green); color: var(--on-green); border-color: var(--green); font-weight: 600; }
+.card.checks { border-color: var(--amber); }
+.card.checks .lab { color: var(--amber); }
+.row1.chk { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 6px 0; }
+.row1.chk button { min-height: 36px; padding: 0 12px; border: 1px solid var(--green); border-radius: 10px; background: transparent; color: var(--green); font-weight: 600; }
+.ck { display: inline-block; font-size: 12px; border-radius: 6px; padding: 0 6px; margin-left: 4px; }
+.ck.uncashed { color: var(--amber); border: 1px solid var(--amber); }
+.ck.cashed { color: var(--muted); border: 1px solid var(--line); }
+.card.checks { border-color: var(--amber); }
+.card.checks .lab { color: var(--amber); }
+.row1.chk { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 6px 0; }
+.row1.chk button { min-height: 36px; padding: 0 12px; border: 1px solid var(--green); border-radius: 10px; background: transparent; color: var(--green); font-weight: 600; }
+.ck { display: inline-block; font-size: 12px; border-radius: 6px; padding: 0 6px; margin-left: 4px; }
+.ck.uncashed { color: var(--amber); border: 1px solid var(--amber); }
+.ck.cashed { color: var(--muted); border: 1px solid var(--line); }

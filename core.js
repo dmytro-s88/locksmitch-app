@@ -47,6 +47,8 @@
     const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
     return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()] + ' ' + (d.getMonth() + 1) + '/' + d.getDate() + (m[1] === today.slice(0, 4) ? '' : '/' + m[1]);
   };
+  /** One uncashed check in the Money card: '#35 · car · service · Mon 11/16'. Pure. */
+  C.checkLine = function (c, now) { return [c.num ? '#' + c.num : '', c.title || 'Check', C.dayLabel(c.date, now)].filter(Boolean).join(' · '); };
   C.daySummary = function (recent, miles) {
     const n = (recent || []).filter(function (o) { return o.kind === 'income'; }).length;
     return [n ? n + (n === 1 ? ' payment' : ' payments') : 'No payments yet', Number(miles) > 0 ? C.fmtMiles(miles) : ''].filter(Boolean).join(' · ');
