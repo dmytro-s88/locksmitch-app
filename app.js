@@ -234,7 +234,7 @@
     moneyDefaults();
     const m = state.money, box = $('moneyBox'), month = state.month, isDay = state.moneyMode === 'day', day = state.moneyDay;
     const tile = (lab, val, cls) => '<div class="tile"><div class="lab">' + lab + '</div><div class="val ' + (cls || '') + '">' + val + '</div></div>';
-    let html = '<div class="tabs"><button data-mode="day" class="' + (isDay ? 'on' : '') + '">Today</button><button data-mode="month" class="' + (isDay ? '' : 'on') + '">Month</button></div>';
+    let html = '<div class="tabs"><button data-mode="day" class="' + (isDay ? 'on' : '') + '">Day</button><button data-mode="month" class="' + (isDay ? '' : 'on') + '">Month</button></div>';
     html += isDay
       ? '<div class="mhead"><button class="iconbtn" data-d="-1" aria-label="Previous day">&#8249;</button><b>' + C.dayLabel(day) + '</b><button class="iconbtn" data-d="1" aria-label="Next day"' + (day >= C.currentDay() ? ' disabled' : '') + '>&#8250;</button></div>'
       : '<div class="mhead"><button class="iconbtn" data-m="-1" aria-label="Previous month">&#8249;</button><b>' + C.monthLabel(month) + '</b><button class="iconbtn" data-m="1" aria-label="Next month">&#8250;</button></div>';
