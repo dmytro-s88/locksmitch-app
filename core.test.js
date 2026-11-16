@@ -43,3 +43,7 @@ test('leadsKey separates days of the Today tab', () => {
   assert.equal(C.leadsKey('open', '2026-11-14'), 'open');
   assert.equal(C.leadsKey('today', ''), 'today');
   assert.equal(C.leadsKey('today', '2026-11-14'), 'today:2026-11-14'); });
+test('shiftDay across month and year', () => { assert.equal(C.shiftDay('2026-11-01', -1), '2026-10-31'); assert.equal(C.shiftDay('2026-12-31', 1), '2027-01-01'); assert.equal(C.shiftDay('2026-11-16', 0), '2026-11-16'); assert.equal(C.shiftDay('bad', 1), ''); });
+test('currentDay uses local date', () => { assert.equal(C.currentDay(new Date(2026, 10, 16, 23, 50)), '2026-11-16'); assert.equal(C.currentDay(new Date(2026, 0, 1, 0, 5)), '2026-01-01'); });
+test('dayLabel: Today, Yesterday, then weekday date', () => { const now = new Date(2026, 10, 16, 10); assert.equal(C.dayLabel('2026-11-16', now), 'Today'); assert.equal(C.dayLabel('2026-11-15', now), 'Yesterday'); assert.equal(C.dayLabel('2026-11-13', now), 'Fri 11/13'); assert.equal(C.dayLabel('2025-12-31', now), 'Wed 12/31/2025'); });
+test('daySummary: payments count and miles', () => { assert.equal(C.daySummary([{ kind: 'income' }, { kind: 'income' }, { kind: 'expense' }, { kind: 'miles' }], 88.4), '2 payments · 88.4 mi'); assert.equal(C.daySummary([{ kind: 'income' }], 0), '1 payment'); assert.equal(C.daySummary([], 0), 'No payments yet'); });

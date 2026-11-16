@@ -225,21 +225,35 @@
   $('invoiceBox').addEventListener('input', e => { if (e.target.closest('#lines') && $('invTotal')) { const L = readLines(); if (state.inv) state.inv.lines = L; $('invTotal').textContent = C.fmtMoney(C.invoiceTotal(L)); } });   // набранное живёт в state: перерисовка не стирает
 
   // ---------- money ----------
+  function moneyDefaults() {
+    if (!state.month) state.month = C.currentMonth();
+    if (!state.moneyMode) state.moneyMode = 'day';   // Дима 2026-11-16: сначала видно, сколько заработано сегодня
+    if (!state.moneyDay) state.moneyDay = C.currentDay();
+  }
   function renderMoney() {
-    const m = state.money, box = $('moneyBox'), month = state.month;
+    moneyDefaults();
+    const m = state.money, box = $('moneyBox'), month = state.month, isDay = state.moneyMode === 'day', day = state.moneyDay;
     const tile = (lab, val, cls) => '<div class="tile"><div class="lab">' + lab + '</div><div class="val ' + (cls || '') + '">' + val + '</div></div>';
-    let html = '<div class="mhead"><button class="iconbtn" data-m="-1" aria-label="Previous month">&#8249;</button><b>' + C.monthLabel(month) + '</b><button class="iconbtn" data-m="1" aria-label="Next month">&#8250;</button></div>';
+    let html = '<div class="tabs"><button data-mode="day" class="' + (isDay ? 'on' : '') + '">Today</button><button data-mode="month" class="' + (isDay ? '' : 'on') + '">Month</button></div>';
+    html += isDay
+      ? '<div class="mhead"><button class="iconbtn" data-d="-1" aria-label="Previous day">&#8249;</button><b>' + C.dayLabel(day) + '</b><button class="iconbtn" data-d="1" aria-label="Next day"' + (day >= C.currentDay() ? ' disabled' : '') + '>&#8250;</button></div>'
+      : '<div class="mhead"><button class="iconbtn" data-m="-1" aria-label="Previous month">&#8249;</button><b>' + C.monthLabel(month) + '</b><button class="iconbtn" data-m="1" aria-label="Next month">&#8250;</button></div>';
     if (!m) { html += '<p class="muted">Loading…</p>'; box.innerHTML = html; return; }
+    if (isDay) html += '<div class="today"><div class="lab">Earned</div><div class="big">' + C.fmtMoney(m.income) + '</div><div class="muted">' + esc(C.daySummary(m.recent, m.miles)) + '</div></div>';
     html += '<div class="tiles">' + tile('Income', C.fmtMoney(m.income)) + tile('Expenses', C.fmtMoney(m.expenses)) + tile('Profit', C.fmtMoney(m.profit), m.profit >= 0 ? 'pos' : 'neg') + tile('Miles', C.fmtMiles(m.miles) || '0 mi') + '</div>';
-    if (m.owedTotal) html += '<div class="card"><div class="lab">Colleagues owe you</div>' + m.owed.map(o => '<div class="row1"><span>#' + o.num + (o.name ? ' ' + esc(o.name) : '') + (o.who ? ' · ' + esc(o.who) : '') + '</span><b>' + C.fmtMoney(o.expect) + '</b></div>').join('') + '<div class="total"><span>Total</span><span>' + C.fmtMoney(m.owedTotal) + '</span></div></div>';
+    if (m.owedTotal && !isDay) html += '<div class="card"><div class="lab">Colleagues owe you</div>' + m.owed.map(o => '<div class="row1"><span>#' + o.num + (o.name ? ' ' + esc(o.name) : '') + (o.who ? ' · ' + esc(o.who) : '') + '</span><b>' + C.fmtMoney(o.expect) + '</b></div>').join('') + '<div class="total"><span>Total</span><span>' + C.fmtMoney(m.owedTotal) + '</span></div></div>';
     html += '<div class="btnrow stack"><button class="primary" id="addExp">+ Expense</button></div><div id="expSheet"></div>';
-    html += '<div class="lab" style="margin:8px 2px 6px;color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.05em">Latest</div>';
-    html += m.recent.length ? '<div class="ops">' + m.recent.map(o => '<div class="op"><div class="t"><div>' + esc(o.title) + '</div><div>' + esc([o.date, o.note].filter(Boolean).join(' · ').slice(0, 80)) + '</div></div><div class="a ' + (o.kind === 'income' ? 'in' : o.kind === 'miles' ? 'mi' : '') + '">' + (o.kind === 'miles' ? C.fmtMiles(o.amount) : (o.kind === 'income' ? '+' : '-') + C.fmtMoney(o.amount)) + '</div></div>').join('') + '</div>' : '<p class="muted">No entries this month.</p>';
+    html += '<div class="lab" style="margin:8px 2px 6px;color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.05em">' + (isDay ? 'This day' : 'Latest') + '</div>';
+    html += m.recent.length ? '<div class="ops">' + m.recent.map(o => '<div class="op"><div class="t"><div>' + esc(o.title) + '</div><div>' + esc([o.date, o.note].filter(Boolean).join(' · ').slice(0, 80)) + '</div></div><div class="a ' + (o.kind === 'income' ? 'in' : o.kind === 'miles' ? 'mi' : '') + '">' + (o.kind === 'miles' ? C.fmtMiles(o.amount) : (o.kind === 'income' ? '+' : '-') + C.fmtMoney(o.amount)) + '</div></div>').join('') + '</div>' : '<p class="muted">' + (isDay ? 'Nothing recorded this day.' : 'No entries this month.') + '</p>';
     box.innerHTML = html;
   }
   async function loadMoney(month) {
-    state.month = month; state.money = null; render();
-    const r = await call('money', { month: month });
+    if (month) state.month = month;
+    moneyDefaults();
+    const ask = state.moneyMode === 'day' ? { day: state.moneyDay } : { month: state.month }, key = JSON.stringify(ask);
+    state.moneyKey = key; state.money = null; render();
+    const r = await call('money', ask);
+    if (state.moneyKey !== key) return;   // пока грузилось, переключили день/месяц
     if (r.ok) { state.money = r; render(); } else if (!C.isUnauthorized(r)) toast(r.error || 'Could not load', true);
   }
   async function ensureMeta() { if (state.meta) return state.meta; const r = await call('meta'); if (r.ok) state.meta = r; return state.meta; }
@@ -254,6 +268,8 @@
   $('moneyBox').addEventListener('click', async e => {
     const t = e.target.closest('button'); if (!t) return;
     if (t.dataset.m) return loadMoney(C.shiftMonth(state.month, Number(t.dataset.m)));
+    if (t.dataset.d) { const nd = C.shiftDay(state.moneyDay, Number(t.dataset.d)); if (nd > C.currentDay()) return; state.moneyDay = nd; return loadMoney(); }
+    if (t.dataset.mode) { if (t.dataset.mode === state.moneyMode) { if (t.dataset.mode === 'day' && state.moneyDay !== C.currentDay()) { state.moneyDay = C.currentDay(); return loadMoney(); } return; } state.moneyMode = t.dataset.mode; if (state.moneyMode === 'day') state.moneyDay = C.currentDay(); return loadMoney(); }
     if (t.id === 'addExp') return withBtn(t, expenseSheet);
     if (t.dataset.close === 'exp') { $('expSheet').innerHTML = ''; return; }
     if (t.closest('[data-chips="scope"]')) { t.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === t)); const sel = $('exCat'), list = JSON.parse(sel.dataset[t.dataset.v === 'personal' ? 'p' : 'b']); sel.innerHTML = list.map(c => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join(''); return; }
@@ -261,7 +277,7 @@
       const amt = Number($('exAmt').value), vendor = $('exVendor').value.trim();
       if (!(amt > 0)) { toast('Enter the amount', true); return; } if (!vendor) { toast('Where was it?', true); return; }
       const r = await withBtn(t, () => call('expenseAdd', { amount: amt, vendor: vendor, category: $('exCat').value, scope: chipVal('scope'), description: $('exDesc').value.trim() }));
-        if (r.ok) { toast(r.text ? r.text.split('\n')[0] : 'Saved'); loadMoney(state.month); } else { t.disabled = false; if (!C.isUnauthorized(r)) toast(r.error || 'Not saved', true); }
+        if (r.ok) { toast(r.text ? r.text.split('\n')[0] : 'Saved'); loadMoney(); } else { t.disabled = false; if (!C.isUnauthorized(r)) toast(r.error || 'Not saved', true); }
     }
   });
 
@@ -290,8 +306,8 @@
     // No timed fallback: iOS may first ask "Open in Google Maps?", and a timer would also open the web page behind it.
     if (g && /iPhone|iPad|iPod/.test(navigator.userAgent) && state.lead) { e.preventDefault(); location.href = C.gmapsAppUrl(state.lead.lead.address); }
   });
-  $('refresh').addEventListener('click', () => { if (state.view === 'lead' && state.lead) openLead(state.lead.lead.num); else if (state.view === 'leads') loadLeads(state.filter, true); else if (state.view === 'money') loadMoney(state.month); else if (state.view === 'invoice' && state.inv && state.inv.number) openInvoice(state.inv.number); });
-  $('nav').addEventListener('click', e => { const b = e.target.closest('button'); if (!b || b.disabled) return; closeSheet(); state.view = b.dataset.go; render(); if (state.view === 'leads') loadLeads(state.filter, false); if (state.view === 'money') loadMoney(state.month || C.currentMonth()); });
+  $('refresh').addEventListener('click', () => { if (state.view === 'lead' && state.lead) openLead(state.lead.lead.num); else if (state.view === 'leads') loadLeads(state.filter, true); else if (state.view === 'money') loadMoney(); else if (state.view === 'invoice' && state.inv && state.inv.number) openInvoice(state.inv.number); });
+  $('nav').addEventListener('click', e => { const b = e.target.closest('button'); if (!b || b.disabled) return; closeSheet(); state.view = b.dataset.go; render(); if (state.view === 'leads') loadLeads(state.filter, false); if (state.view === 'money') loadMoney(); });
   window.addEventListener('online', () => dispatch({ type: 'offline', on: false }));
   window.addEventListener('offline', () => dispatch({ type: 'offline', on: true }));
 

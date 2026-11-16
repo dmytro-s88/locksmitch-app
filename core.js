@@ -36,6 +36,21 @@
   C.monthLabel = function (ym) { const m = /^(\d{4})-(\d{2})$/.exec(String(ym || '')); return m ? MONTHS[Number(m[2]) - 1] + ' ' + m[1] : ''; };
   C.shiftMonth = function (ym, delta) { const m = /^(\d{4})-(\d{2})$/.exec(String(ym || '')); if (!m) return ''; let y = Number(m[1]), mo = Number(m[2]) - 1 + delta; y += Math.floor(mo / 12); mo = ((mo % 12) + 12) % 12; return y + '-' + ('0' + (mo + 1)).slice(-2); };
   C.currentMonth = function (d) { d = d || new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); };
+  // Money "Today" tab (Dima 2026-11-16): one day at a time, 'YYYY-MM-DD' in local time. Pure.
+  const ymdOf = function (d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  C.currentDay = function (d) { return ymdOf(d || new Date()); };
+  C.shiftDay = function (ymd, delta) { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || '')); return m ? ymdOf(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + delta)) : ''; };
+  C.dayLabel = function (ymd, now) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || '')); if (!m) return '';
+    const today = C.currentDay(now || new Date());
+    if (ymd === today) return 'Today'; if (ymd === C.shiftDay(today, -1)) return 'Yesterday';
+    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()] + ' ' + (d.getMonth() + 1) + '/' + d.getDate() + (m[1] === today.slice(0, 4) ? '' : '/' + m[1]);
+  };
+  C.daySummary = function (recent, miles) {
+    const n = (recent || []).filter(function (o) { return o.kind === 'income'; }).length;
+    return [n ? n + (n === 1 ? ' payment' : ' payments') : 'No payments yet', Number(miles) > 0 ? C.fmtMiles(miles) : ''].filter(Boolean).join(' · ');
+  };
   C.fmtPhone = function (p) { const d = String(p || '').replace(/\D/g, '').replace(/^1(\d{10})$/, '$1'); if (d.length === 10) return '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6); if (d.length === 7) return d.slice(0, 3) + '-' + d.slice(3); return d; };
   C.needsLeads = function (state, filter, now) { const box = state && state.leads && state.leads[filter]; return !box || (now - (box.at || 0)) >= 60000; };
   C.paymentOptions = ['cash', 'check', 'zelle', 'card', 'square'];
