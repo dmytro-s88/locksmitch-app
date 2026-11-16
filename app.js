@@ -52,7 +52,7 @@
     document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.filter === state.filter));
     const box = state.leads[state.filter], leads = box ? box.leads : [];
     $('leadList').innerHTML = leads.map(L => '<li data-num="' + L.num + '" class="' + (L.urgent ? 'urgent' : '') + '">' +
-      '<div class="row1"><b>#' + L.num + (L.name ? ' ' + esc(L.name) : '') + '</b><span class="pill ' + C.statusClass(L.statusKey) + '">' + esc(L.status) + '</span></div>' +
+      '<div class="row1"><b>#' + L.num + (L.name ? ' ' + esc(L.name) : '') + '</b><span class="pill ' + C.statusClass(L.statusKey) + '">' + esc(C.statusText(L)) + '</span></div>' +
       '<div>' + esc([L.vehicle, L.service].filter(Boolean).join(' · ')) + '</div>' +
       '<div class="sub">' + esc([L.city || (L.address ? 'address on card' : 'no address'), L.source, L.date, L.quoted ? 'quoted ' + C.fmtMoney(L.quoted) : '', L.usd ? C.fmtMoney(L.usd) : '', L.colleague ? 'colleague job' : '', L.spanish ? 'Spanish' : ''].filter(Boolean).join(' · ')) + '</div></li>').join('');
     $('leadsEmpty').hidden = leads.length > 0;
@@ -63,9 +63,9 @@
     const L = d.lead, tel = C.telUrl(L.phone), sms = C.smsUrl(L.phone), map = C.mapsUrl(L.address);
     const act = (href, ico, label) => href ? '<a href="' + esc(href) + '"><span class="ico">' + ico + '</span>' + label + '</a>' : '<button disabled><span class="ico">' + ico + '</span>' + label + '</button>';
     $('leadCard').innerHTML =
-      '<div class="card"><div class="row1"><h2>' + esc([L.vehicle, L.service].filter(Boolean).join(' · ') || 'No vehicle') + '</h2><span class="pill ' + C.statusClass(L.statusKey) + '">' + esc(L.status) + '</span></div>' +
+      '<div class="card"><div class="row1"><h2>' + esc([L.vehicle, L.service].filter(Boolean).join(' · ') || 'No vehicle') + '</h2><span class="pill ' + C.statusClass(L.statusKey) + '">' + esc(C.statusText(L)) + '</span></div>' +
       (L.address ? '<div>' + esc(L.address) + (d.miles !== null && d.miles !== undefined ? ' <span class="muted">· ' + C.fmtMiles(d.miles) + '</span>' : '') + '</div>' : '<div class="muted">No address</div>') +
-      '<div class="sub">' + esc([L.source, L.date, C.fmtPhone(L.phone), L.colleague ? 'colleague job' : '', L.spanish ? 'Spanish' : ''].filter(Boolean).join(' · ')) + '</div></div>' +
+      '<div class="sub">' + esc([L.visit ? 'Visit: ' + L.visit : '', L.source, L.date, C.fmtPhone(L.phone), L.colleague ? 'colleague job' : '', L.spanish ? 'Spanish' : ''].filter(Boolean).join(' · ')) + '</div></div>' +
       '<div class="actions3">' + act(tel, '&#9742;', 'Call') + act(sms, '&#9993;', 'Text') + act(map, '&#10148;', 'Go') + '</div>' +
       ((L.quoted || L.usd || L.verdict || L.estimate) ? '<div class="card"><div class="lab">Job</div>' + [L.verdict ? esc(L.verdict) : '', L.estimate ? 'Estimate: ' + esc(L.estimate) : '', L.quoted ? 'Quoted to customer: ' + C.fmtMoney(L.quoted) : '', L.usd ? 'Received: ' + C.fmtMoney(L.usd) : ''].filter(Boolean).join('<br>') + '</div>' : '') +
       (d.priceText ? '<div class="card"><div class="lab">Suggested price</div><pre class="notes">' + esc(d.priceText.replace(/^.*\n/, '')) + '</pre></div>' : '') +

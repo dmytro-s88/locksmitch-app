@@ -20,3 +20,8 @@ test('fmtPhone handles odd lengths', () => { assert.equal(C.fmtPhone('6785495406
 test('needsLeads when box missing or stale', () => { const now = 1000000; assert.equal(C.needsLeads({ leads: {} }, 'open', now), true); assert.equal(C.needsLeads({ leads: { open: { at: now - 1000, leads: [] } } }, 'open', now), false); assert.equal(C.needsLeads({ leads: { open: { at: now - 61000, leads: [] } } }, 'open', now), true); });
 test('offline event keeps invoice draft and view', () => { const s = C.reduce({ view: 'invoice', inv: { lines: [{ desc: 'x', qty: 1, price: 5 }] } }, { type: 'offline', on: true }); assert.equal(s.view, 'invoice'); assert.equal(s.inv.lines[0].desc, 'x'); assert.equal(s.offline, true); });
 test('unauthorized clears cached leads', () => { const s = C.reduce({ key: 'k', leads: { open: { at: 1, leads: [{ num: 1 }] } } }, { type: 'unauthorized' }); assert.deepEqual(s.leads, {}); });
+test('statusText shows visit time for scheduled leads', () => {
+  assert.equal(C.statusText({ status: 'Scheduled', statusKey: 'scheduled', visit: 'Mon 11/16, 12:00 PM' }), 'Scheduled · Mon 11/16, 12:00 PM');
+  assert.equal(C.statusText({ status: 'Scheduled', statusKey: 'scheduled', visit: '' }), 'Scheduled · no time set');
+  assert.equal(C.statusText({ status: 'Needs contact', statusKey: 'new', visit: 'Mon 11/16' }), 'Needs contact');
+  assert.equal(C.statusText({ status: 'Done', statusKey: 'done' }), 'Done'); });

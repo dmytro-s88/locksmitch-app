@@ -38,6 +38,11 @@
   C.needsLeads = function (state, filter, now) { const box = state && state.leads && state.leads[filter]; return !box || (now - (box.at || 0)) >= 60000; };
   C.paymentOptions = ['cash', 'zelle', 'card', 'square'];
   C.lineValid = function (L) { return !!(L && String(L.desc || '').trim()) && !isNaN(Number(L.price)) && String(L.price) !== '' && Number(L.price) >= 0; };
+  /** Status label for the pill: scheduled leads show when (Dima 2026-11-15). Pure. */
+  C.statusText = function (L) {
+    if (!L || L.statusKey !== 'scheduled') return (L && L.status) || '';
+    return (L.status || 'Scheduled') + ' · ' + (L.visit || 'no time set');
+  };
   C.statusClass = function (key) { return 'st-' + (/^(site|new|pending|callback|scheduled|done|lost|spam)$/.test(key) ? key : 'new'); };
 
   /** State transitions. Pure: returns a new state object. */
