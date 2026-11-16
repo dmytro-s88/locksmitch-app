@@ -48,3 +48,18 @@ test('currentDay uses local date', () => { assert.equal(C.currentDay(new Date(20
 test('dayLabel: Today, Yesterday, then weekday date', () => { const now = new Date(2026, 10, 16, 10); assert.equal(C.dayLabel('2026-11-16', now), 'Today'); assert.equal(C.dayLabel('2026-11-15', now), 'Yesterday'); assert.equal(C.dayLabel('2026-11-13', now), 'Fri 11/13'); assert.equal(C.dayLabel('2025-12-31', now), 'Wed 12/31/2025'); });
 test('daySummary: payments count and miles', () => { assert.equal(C.daySummary([{ kind: 'income' }, { kind: 'income' }, { kind: 'expense' }, { kind: 'miles' }], 88.4), '2 payments · 88.4 mi'); assert.equal(C.daySummary([{ kind: 'income' }], 0), '1 payment'); assert.equal(C.daySummary([], 0), 'No payments yet'); });
 test('checkLine: lead number, car, date', () => { const now = new Date(2026, 10, 18, 10); assert.equal(C.checkLine({ num: 35, title: '2020 Lexus RX · key programming', date: '2026-11-16' }, now), '#35 · 2020 Lexus RX · key programming · Mon 11/16'); assert.equal(C.checkLine({ num: 0, title: 'Check', date: '2026-11-18' }, now), 'Check · Today'); });
+test('jobKeyLine: key and cost, estimate marked, no key reason', () => {
+  assert.equal(C.jobKeyLine({ key: 'SUPALAND Ford flip', unit: 16.03, qty: 1, cost: 16.03, est: false, auto: true }), 'SUPALAND Ford flip · $16.03');
+  assert.equal(C.jobKeyLine({ key: 'Remote key (average)', unit: 8.93, qty: 2, cost: 17.86, est: true }), 'Remote key (average) · ~$8.93 × 2');
+  assert.equal(C.jobKeyLine({ key: '', why: 'lockout' }), 'No key · lockout');
+  assert.equal(C.jobKeyLine({ key: '', why: '' }), 'No key'); });
+test('jobsSummary: paid, keys, left', () => {
+  assert.equal(C.jobsSummary({ paid: 1926, keys: 131.47, net: 1794.53, est: true }), 'Paid $1,926.00 · Keys ~$131.47 · Left $1,794.53');
+  assert.equal(C.jobsSummary({ paid: 250, keys: 16.03, net: 233.97, est: false }), 'Paid $250.00 · Keys $16.03 · Left $233.97'); });
+test('makeWord: make from the vehicle', () => { assert.equal(C.makeWord('2019 Ford Ranger'), 'Ford'); assert.equal(C.makeWord('Honda Ridgeline'), 'Honda'); assert.equal(C.makeWord('2016 Chevy Colorado'), 'Chevrolet'); assert.equal(C.makeWord(''), ''); });
+test('filterStock: every word must match, in stock first', () => {
+  const items = [{ name: 'Ford 4 Button Remote Head Key 164-R7976', qty: 0 }, { name: 'SUPALAND Ford 3-button flip key fob, N5F-A08TAA', qty: 1 }, { name: 'Honda Smart Key', qty: 2 }];
+  assert.deepEqual(C.filterStock(items, 'ford').map(i => i.qty), [1, 0]);
+  assert.deepEqual(C.filterStock(items, 'ford flip').map(i => i.name), ['SUPALAND Ford 3-button flip key fob, N5F-A08TAA']);
+  assert.deepEqual(C.filterStock(items, 'n5fa08').length, 1);
+  assert.equal(C.filterStock(items, '').length, 3); });

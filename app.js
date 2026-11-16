@@ -242,17 +242,69 @@
     if (isDay) html += '<div class="today"><div class="lab">Earned</div><div class="big">' + C.fmtMoney(m.income) + '</div><div class="muted">' + esc(C.daySummary(m.recent, m.miles)) + '</div></div>';
     html += '<div class="tiles">' + tile('Income', C.fmtMoney(m.income)) + tile('Expenses', C.fmtMoney(m.expenses)) + tile('Profit', C.fmtMoney(m.profit), m.profit >= 0 ? 'pos' : 'neg') + tile('Miles', C.fmtMiles(m.miles) || '0 mi') + '</div>';
     if (m.checks && m.checks.length) html += '<div class="card checks"><div class="lab">Checks not cashed</div>' + m.checks.map(c => '<div class="row1 chk"><span>' + esc(C.checkLine(c)) + '</span><b>' + C.fmtMoney(c.amount) + '</b><button data-cash="' + c.row + '" data-amt="' + c.amount + '">Cashed</button></div>').join('') + (m.checks.length > 1 ? '<div class="total"><span>Total</span><span>' + C.fmtMoney(m.checksTotal) + '</span></div>' : '') + '</div>';
+    if (m.jobs && m.jobs.length) html += '<div class="card jobs"><div class="lab">Jobs · key cost</div><div class="sub jsum">' + esc(C.jobsSummary(m.jobsTotals)) + '</div>' + m.jobs.map(j => '<div class="job' + (state.keyEdit && state.keyEdit.num === j.num ? ' open' : '') + '" data-job="' + j.num + '"><div class="row1"><span>#' + j.num + ' · ' + esc(j.title) + '</span><b>' + C.fmtMoney(j.net) + '</b></div><div class="sub">🔑 ' + esc(C.jobKeyLine(j)) + (j.auto && j.key ? ' <span class="auto">auto</span>' : '') + ' · paid ' + C.fmtMoney(j.paid) + '</div>' + (state.keyEdit && state.keyEdit.num === j.num ? keySheetHtml() : '') + '</div>').join('') + '<div class="sub" style="margin-top:6px">Tap a job to fix the key. Profit above already counts keys as expenses on the day you bought them.</div></div>';
     if (m.owedTotal && !isDay) html += '<div class="card"><div class="lab">Colleagues owe you</div>' + m.owed.map(o => '<div class="row1"><span>#' + o.num + (o.name ? ' ' + esc(o.name) : '') + (o.who ? ' · ' + esc(o.who) : '') + '</span><b>' + C.fmtMoney(o.expect) + '</b></div>').join('') + '<div class="total"><span>Total</span><span>' + C.fmtMoney(m.owedTotal) + '</span></div></div>';
     html += '<div class="btnrow stack"><button class="primary" id="addExp">+ Expense</button></div><div id="expSheet"></div>';
     html += '<div class="lab" style="margin:8px 2px 6px;color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.05em">' + (isDay ? 'This day' : 'Latest') + '</div>';
     html += m.recent.length ? '<div class="ops">' + m.recent.map(o => '<div class="op"><div class="t"><div>' + esc(o.title) + '</div><div>' + esc([o.date, o.note].filter(Boolean).join(' · ').slice(0, 80)) + (o.check ? ' <span class="ck ' + (o.check === 'cashed' ? 'cashed' : 'uncashed') + '">' + (o.check === 'cashed' ? 'check cashed' : 'check not cashed') + '</span>' : '') + '</div></div><div class="a ' + (o.kind === 'income' ? 'in' : o.kind === 'miles' ? 'mi' : '') + '">' + (o.kind === 'miles' ? C.fmtMiles(o.amount) : (o.kind === 'income' ? '+' : '-') + C.fmtMoney(o.amount)) + '</div></div>').join('') + '</div>' : '<p class="muted">' + (isDay ? 'Nothing recorded this day.' : 'No entries this month.') + '</p>';
     box.innerHTML = html;
   }
+  // ---------- ключ по работе (Дима 2026-11-16) ----------
+  function keyListHtml() {
+    const k = state.keyEdit; if (!k) return '';
+    if (!k.items) return '<p class="muted">Loading stock…</p>';
+    const list = C.filterStock(k.items, k.q).slice(0, 40);
+    let html = list.map((it, i) => '<button class="kitem' + (it.name === k.sel ? ' on' : '') + '" data-kitem="' + i + '"><span>' + esc(it.name) + '</span><span class="muted">' + it.qty + ' pcs · ' + (it.est ? '~' : '') + C.fmtMoney(it.unit) + '</span></button>').join('');
+    if (k.q.trim() && !list.length) html += '<button class="kitem' + (k.sel === k.q.trim() ? ' on' : '') + '" data-kcustom="1"><span>Not in stock: “' + esc(k.q.trim()) + '”</span></button>';
+    k.shown = list;
+    return html;
+  }
+  function keySheetHtml() {
+    const k = state.keyEdit;
+    return '<div class="sheet ksheet"><input id="kq" placeholder="Search stock: Ford, N5F, flip…" value="' + esc(k.q) + '" autocomplete="off"><div class="klist" id="klist">' + keyListHtml() + '</div>' +
+      '<div class="row"><label class="fld">Cost per key $<input id="kunit" type="number" inputmode="decimal" step="0.01" value="' + (k.unit === '' ? '' : esc(String(k.unit))) + '"></label><label class="fld">Keys<input id="kqty" type="number" inputmode="numeric" min="1" max="10" value="' + k.qty + '"></label></div>' +
+      '<label class="chk"><input id="ktake" type="checkbox"' + (k.take ? ' checked' : '') + '> Take from stock (−' + k.qty + ')</label>' +
+      '<div class="row"><button class="secondary" data-knone="1">No key</button><button class="secondary" data-kclose="1">Cancel</button><button class="primary" data-ksave="1">Save</button></div></div>';
+  }
+  async function openKey(num) {
+    if (state.keyEdit && state.keyEdit.num === num) { state.keyEdit = null; render(); return; }
+    const j = (state.money.jobs || []).filter(x => x.num === num)[0]; if (!j) return;
+    const guessed = j.key && !/\(average\)$/.test(j.key);
+    state.keyEdit = { num: num, q: guessed ? '' : C.makeWord(String(j.title).split(' · ')[0]), sel: guessed ? j.key : '', unit: j.key ? j.unit : '', qty: j.qty || 1, take: true, items: null };
+    render();
+    const r = await call('jobKeyOptions', { num: num });
+    if (!state.keyEdit || state.keyEdit.num !== num) return;
+    if (r.ok) { state.keyEdit.items = r.items; if (state.keyEdit.sel && !state.keyEdit.q) state.keyEdit.q = C.makeWord(r.vehicle || String(j.title).split(' · ')[0]); if (r.saved && r.saved.off > 0) state.keyEdit.take = true; render(); }
+    else { state.keyEdit = null; render(); if (!C.isUnauthorized(r)) toast(r.error || 'Could not load stock', true); }
+  }
+  async function saveKey(btn, none) {
+    const k = state.keyEdit; if (!k) return;
+    const body = { num: k.num };
+    if (none) body.none = true;
+    else {
+      if (!k.sel) { toast('Pick a key from the list', true); return; }
+      const unit = Number(k.unit); if (k.unit === '' || !(unit >= 0)) { toast('Enter the key cost', true); return; }
+      Object.assign(body, { name: k.sel, unit: unit, qty: Math.max(1, Number(k.qty) || 1), take: !!k.take && (k.items || []).some(it => it.name === k.sel) });
+    }
+    const r = await withBtn(btn, () => call('jobKeySet', body));
+    if (r.ok) { state.keyEdit = null; toast(r.text || 'Saved'); loadMoney(); } else if (!C.isUnauthorized(r)) toast(r.error || 'Not saved', true);
+  }
+  $('moneyBox').addEventListener('input', e => {
+    const k = state.keyEdit; if (!k) return;
+    if (e.target.id === 'kq') { k.q = e.target.value; $('klist').innerHTML = keyListHtml(); }
+    else if (e.target.id === 'kunit') k.unit = e.target.value;
+    else if (e.target.id === 'kqty') { k.qty = Math.max(1, Math.min(10, Number(e.target.value) || 1)); }
+    else if (e.target.id === 'ktake') k.take = e.target.checked;
+  });
+  $('moneyBox').addEventListener('click', e => {
+    if (e.target.closest('.ksheet')) return;
+    const row = e.target.closest('[data-job]'); if (row) openKey(Number(row.dataset.job));
+  });
   async function loadMoney(month) {
     if (month) state.month = month;
     moneyDefaults();
     const ask = state.moneyMode === 'day' ? { day: state.moneyDay } : { month: state.month }, key = JSON.stringify(ask);
-    state.moneyKey = key; state.money = null; render();
+    state.moneyKey = key; state.money = null; state.keyEdit = null; render();
     const r = await call('money', ask);
     if (state.moneyKey !== key) return;   // пока грузилось, переключили день/месяц
     if (r.ok) { state.money = r; render(); } else if (!C.isUnauthorized(r)) toast(r.error || 'Could not load', true);
@@ -271,6 +323,11 @@
     if (t.dataset.m) return loadMoney(C.shiftMonth(state.month, Number(t.dataset.m)));
     if (t.dataset.d) { const nd = C.shiftDay(state.moneyDay, Number(t.dataset.d)); if (nd > C.currentDay()) return; state.moneyDay = nd; return loadMoney(); }
     if (t.dataset.mode) { if (t.dataset.mode === state.moneyMode) { if (t.dataset.mode === 'day' && state.moneyDay !== C.currentDay()) { state.moneyDay = C.currentDay(); return loadMoney(); } return; } state.moneyMode = t.dataset.mode; if (state.moneyMode === 'day') state.moneyDay = C.currentDay(); return loadMoney(); }
+    if (t.dataset.kitem !== undefined && state.keyEdit) { const it = (state.keyEdit.shown || [])[Number(t.dataset.kitem)]; if (it) { state.keyEdit.sel = it.name; state.keyEdit.unit = it.unit; render(); } return; }
+    if (t.dataset.kcustom && state.keyEdit) { state.keyEdit.sel = state.keyEdit.q.trim(); state.keyEdit.take = false; render(); return; }
+    if (t.dataset.kclose) { state.keyEdit = null; render(); return; }
+    if (t.dataset.knone) return saveKey(t, true);
+    if (t.dataset.ksave) return saveKey(t, false);
     if (t.dataset.cash) {
       const r = await withBtn(t, () => call('checkCashed', { row: Number(t.dataset.cash), amount: Number(t.dataset.amt) }));
       if (r.ok) { toast(r.text || 'Check cashed'); loadMoney(); } else if (!C.isUnauthorized(r)) toast(r.error || 'Not saved', true);

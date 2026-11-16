@@ -53,6 +53,20 @@
     const n = (recent || []).filter(function (o) { return o.kind === 'income'; }).length;
     return [n ? n + (n === 1 ? ' payment' : ' payments') : 'No payments yet', Number(miles) > 0 ? C.fmtMiles(miles) : ''].filter(Boolean).join(' · ');
   };
+  // Ключ по работе (Дима 2026-11-16): бот угадывает ключ и цену, Дима правит только ошибки. Pure.
+  C.jobKeyLine = function (j) {
+    if (!j || !j.key) return 'No key' + (j && j.why ? ' · ' + j.why : '');
+    return j.key + ' · ' + (j.est ? '~' : '') + C.fmtMoney(j.unit) + (j.qty > 1 ? ' × ' + j.qty : '');
+  };
+  C.jobsSummary = function (t) { t = t || {}; return 'Paid ' + C.fmtMoney(t.paid) + ' · Keys ' + (t.est ? '~' : '') + C.fmtMoney(t.keys) + ' · Left ' + C.fmtMoney(t.net); };
+  const MAKE_ALIAS = { chevy: 'Chevrolet', vw: 'Volkswagen', benz: 'Mercedes', mercedes: 'Mercedes' };
+  C.makeWord = function (vehicle) { const w = String(vehicle || '').replace(/\b(19|20)\d{2}\b/g, ' ').trim().split(/\s+/)[0] || ''; return MAKE_ALIAS[w.toLowerCase()] || w; };
+  C.filterStock = function (items, query) {
+    const flat = x => String(x || '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ');
+    const words = flat(query).trim().split(' ').filter(Boolean);
+    return (items || []).filter(function (it) { const f = ' ' + flat(it.name) + ' ', g = f.replace(/ /g, ''); return words.every(function (w) { return f.indexOf(' ' + w) >= 0 || (w.length >= 4 && g.indexOf(w) >= 0); }); })
+      .map(function (it, i) { return { it: it, i: i }; }).sort(function (a, b) { return ((b.it.qty > 0) - (a.it.qty > 0)) || (a.i - b.i); }).map(function (x) { return x.it; });
+  };
   C.fmtPhone = function (p) { const d = String(p || '').replace(/\D/g, '').replace(/^1(\d{10})$/, '$1'); if (d.length === 10) return '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6); if (d.length === 7) return d.slice(0, 3) + '-' + d.slice(3); return d; };
   C.needsLeads = function (state, filter, now) { const box = state && state.leads && state.leads[filter]; return !box || (now - (box.at || 0)) >= 60000; };
   C.paymentOptions = ['cash', 'check', 'zelle', 'card', 'square'];
