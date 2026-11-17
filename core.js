@@ -58,7 +58,9 @@
     if (!j || !j.key) return 'No key' + (j && j.why ? ' · ' + j.why : '');
     return j.key + ' · ' + (j.est ? '~' : '') + C.fmtMoney(j.unit) + (j.qty > 1 ? ' × ' + j.qty : '');
   };
-  C.jobsSummary = function (t) { t = t || {}; return 'Paid ' + C.fmtMoney(t.paid) + ' · Keys ' + (t.est ? '~' : '') + C.fmtMoney(t.keys) + ' · Left ' + C.fmtMoney(t.net); };
+  C.jobsSummary = function (t) { t = t || {}; return 'Paid ' + C.fmtMoney(t.paid) + ' · Keys ' + (t.est ? '~' : '') + C.fmtMoney(t.keys) + (Number(t.other) > 0 ? ' · Other ' + C.fmtMoney(t.other) : '') + ' · Left ' + C.fmtMoney(t.net); };
+  // прочие расходы работы (PIN-код и т.п., расходы с «лид #N»)
+  C.jobExtrasLine = function (j) { return ((j && j.extras) || []).map(function (x) { return (x.vendor || 'Cost') + ' ' + C.fmtMoney(x.amount); }).join(' · '); };
   const MAKE_ALIAS = { chevy: 'Chevrolet', vw: 'Volkswagen', benz: 'Mercedes', mercedes: 'Mercedes' };
   C.makeWord = function (vehicle) { const w = String(vehicle || '').replace(/\b(19|20)\d{2}\b/g, ' ').trim().split(/\s+/)[0] || ''; return MAKE_ALIAS[w.toLowerCase()] || w; };
   C.filterStock = function (items, query) {

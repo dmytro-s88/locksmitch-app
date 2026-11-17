@@ -54,6 +54,11 @@ test('jobKeyLine: key and cost, estimate marked, no key reason', () => {
   assert.equal(C.jobKeyLine({ key: 'Remote key (average)', unit: 8.93, qty: 2, cost: 17.86, est: true }), 'Remote key (average) · ~$8.93 × 2');
   assert.equal(C.jobKeyLine({ key: '', why: 'lockout' }), 'No key · lockout');
   assert.equal(C.jobKeyLine({ key: '', why: '' }), 'No key'); });
+test('jobsSummary: other job costs shown only when there are some', () => {
+  assert.equal(C.jobsSummary({ paid: 200, keys: 20, other: 42, net: 138, est: false }), 'Paid $200.00 · Keys $20.00 · Other $42.00 · Left $138.00'); });
+test('jobExtrasLine: vendor and amount of each job cost', () => {
+  assert.equal(C.jobExtrasLine({ extras: [{ vendor: 'AutoCode', amount: 42, what: 'PIN' }, { vendor: 'Keys4Less', amount: 8.5 }] }), 'AutoCode $42.00 · Keys4Less $8.50');
+  assert.equal(C.jobExtrasLine({ extras: [] }), ''); assert.equal(C.jobExtrasLine({}), ''); });
 test('jobsSummary: paid, keys, left', () => {
   assert.equal(C.jobsSummary({ paid: 1926, keys: 131.47, net: 1794.53, est: true }), 'Paid $1,926.00 · Keys ~$131.47 · Left $1,794.53');
   assert.equal(C.jobsSummary({ paid: 250, keys: 16.03, net: 233.97, est: false }), 'Paid $250.00 · Keys $16.03 · Left $233.97'); });
