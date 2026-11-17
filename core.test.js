@@ -49,6 +49,10 @@ test('dayLabel: Today, Yesterday, then weekday date', () => { const now = new Da
 test('daySummary: payments count and miles', () => { assert.equal(C.daySummary([{ kind: 'income' }, { kind: 'income' }, { kind: 'expense' }, { kind: 'miles' }], 88.4), '2 payments · 88.4 mi'); assert.equal(C.daySummary([{ kind: 'income' }], 0), '1 payment'); assert.equal(C.daySummary([], 0), 'No payments yet'); });
 test('checkLine: lead number, car, date', () => { const now = new Date(2026, 10, 18, 10); assert.equal(C.checkLine({ num: 35, title: '2020 Lexus RX · key programming', date: '2026-11-16' }, now), '#35 · 2020 Lexus RX · key programming · Mon 11/16'); assert.equal(C.checkLine({ num: 0, title: 'Check', date: '2026-11-18' }, now), 'Check · Today'); });
 test('statusClass knows thinking and parts', () => { assert.equal(C.statusClass('thinking'), 'st-thinking'); assert.equal(C.statusClass('parts'), 'st-parts'); assert.equal(C.statusClass('weird'), 'st-new'); });
+test('jobKeyLine: kit parts (super chip, blade) shown after the key', () => {
+  assert.equal(C.jobKeyLine({ key: 'Xhorse Toyota Flip (Wired)', unit: 7.9, qty: 1, est: false, kit: [{ name: 'Super chip (VVDI Super Chip XT27A)', unit: 1.69 }, { name: 'Blade (TR47)', unit: 0.8 }] }), 'Xhorse Toyota Flip (Wired) · $7.90 + chip $1.69 + blade $0.80');
+  assert.equal(C.jobKeyLine({ key: 'X Wired', unit: 8, qty: 2, est: true, kit: [{ name: 'Super chip', unit: 2, est: true }] }), 'X Wired · ~$8.00 + chip ~$2.00 × 2');
+  assert.equal(C.jobKeyLine({ key: 'X Wired', unit: 7.9, qty: 1, est: true, keyEst: false, kit: [{ name: 'Super chip', unit: 2, est: true }] }), 'X Wired · $7.90 + chip ~$2.00'); });
 test('jobKeyLine: key and cost, estimate marked, no key reason', () => {
   assert.equal(C.jobKeyLine({ key: 'SUPALAND Ford flip', unit: 16.03, qty: 1, cost: 16.03, est: false, auto: true }), 'SUPALAND Ford flip · $16.03');
   assert.equal(C.jobKeyLine({ key: 'Remote key (average)', unit: 8.93, qty: 2, cost: 17.86, est: true }), 'Remote key (average) · ~$8.93 × 2');

@@ -56,7 +56,9 @@
   // Ключ по работе (Дима 2026-11-16): бот угадывает ключ и цену, Дима правит только ошибки. Pure.
   C.jobKeyLine = function (j) {
     if (!j || !j.key) return 'No key' + (j && j.why ? ' · ' + j.why : '');
-    return j.key + ' · ' + (j.est ? '~' : '') + C.fmtMoney(j.unit) + (j.qty > 1 ? ' × ' + j.qty : '');
+    const kit = (j.kit || []).map(function (x) { return ' + ' + (/chip/i.test(x.name) ? 'chip' : /blade/i.test(x.name) ? 'blade' : x.name) + ' ' + (x.est ? '~' : '') + C.fmtMoney(x.unit); }).join('');
+    const keyEst = j.keyEst !== undefined ? j.keyEst : j.est;   // est у работы учитывает и мелочь; keyEst — только сам ключ (бот v274)
+    return j.key + ' · ' + (keyEst ? '~' : '') + C.fmtMoney(j.unit) + kit + (j.qty > 1 ? ' × ' + j.qty : '');
   };
   C.jobsSummary = function (t) { t = t || {}; return 'Paid ' + C.fmtMoney(t.paid) + ' · Keys ' + (t.est ? '~' : '') + C.fmtMoney(t.keys) + (Number(t.other) > 0 ? ' · Other ' + C.fmtMoney(t.other) : '') + ' · Left ' + C.fmtMoney(t.net); };
   // VIN и PIN лида для карточки (бот v273)
