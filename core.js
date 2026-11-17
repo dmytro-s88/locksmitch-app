@@ -59,6 +59,8 @@
     return j.key + ' · ' + (j.est ? '~' : '') + C.fmtMoney(j.unit) + (j.qty > 1 ? ' × ' + j.qty : '');
   };
   C.jobsSummary = function (t) { t = t || {}; return 'Paid ' + C.fmtMoney(t.paid) + ' · Keys ' + (t.est ? '~' : '') + C.fmtMoney(t.keys) + (Number(t.other) > 0 ? ' · Other ' + C.fmtMoney(t.other) : '') + ' · Left ' + C.fmtMoney(t.net); };
+  // VIN и PIN лида для карточки (бот v273)
+  C.leadCodes = function (L) { L = L || {}; return [['VIN', L.vin], ['PIN', L.pin]].filter(function (x) { return x[1]; }).map(function (x) { return { lab: x[0], val: String(x[1]) }; }); };
   // прочие расходы работы (PIN-код и т.п., расходы с «лид #N»)
   C.jobExtrasLine = function (j) { return ((j && j.extras) || []).map(function (x) { return (x.vendor || 'Cost') + ' ' + C.fmtMoney(x.amount); }).join(' · '); };
   const MAKE_ALIAS = { chevy: 'Chevrolet', vw: 'Volkswagen', benz: 'Mercedes', mercedes: 'Mercedes' };

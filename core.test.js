@@ -59,6 +59,9 @@ test('jobsSummary: other job costs shown only when there are some', () => {
 test('jobExtrasLine: vendor and amount of each job cost', () => {
   assert.equal(C.jobExtrasLine({ extras: [{ vendor: 'AutoCode', amount: 42, what: 'PIN' }, { vendor: 'Keys4Less', amount: 8.5 }] }), 'AutoCode $42.00 · Keys4Less $8.50');
   assert.equal(C.jobExtrasLine({ extras: [] }), ''); assert.equal(C.jobExtrasLine({}), ''); });
+test('leadCodes: VIN and PIN rows only when present', () => {
+  assert.deepEqual(C.leadCodes({ vin: '3KPF34AD7ME292169', pin: '4821' }), [{ lab: 'VIN', val: '3KPF34AD7ME292169' }, { lab: 'PIN', val: '4821' }]);
+  assert.deepEqual(C.leadCodes({ vin: '', pin: '' }), []); assert.deepEqual(C.leadCodes({}), []); });
 test('jobsSummary: paid, keys, left', () => {
   assert.equal(C.jobsSummary({ paid: 1926, keys: 131.47, net: 1794.53, est: true }), 'Paid $1,926.00 · Keys ~$131.47 · Left $1,794.53');
   assert.equal(C.jobsSummary({ paid: 250, keys: 16.03, net: 233.97, est: false }), 'Paid $250.00 · Keys $16.03 · Left $233.97'); });
