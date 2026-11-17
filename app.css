@@ -45,6 +45,7 @@ button:disabled { opacity: .5; }
 .st-site { background: #1E2A33; color: #8CCBE0; }
 .st-pending { background: #1E2A33; color: #8CCBE0; }
 .st-thinking { background: #2A1F33; color: #C9A8F0; }
+.st-parts { background: #1F2A33; color: #8EC5F0; }
 .st-callback { background: #2A2412; color: #F3C96B; }
 .st-scheduled { background: #1A2A3E; color: #9CC4F5; }
 .st-done { background: #16301B; color: #8FE08A; }

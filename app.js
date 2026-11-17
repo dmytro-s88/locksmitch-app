@@ -82,7 +82,7 @@
     $('leadActions').innerHTML = '<div class="actgrid">' +
       (L.statusKey !== 'done' ? '<button class="done" data-act="done"' + (pend ? ' disabled' : '') + '>' + (pend ? '<span class="spin"></span>' : '&#10003; Done') + '</button>' : '') +
       '<button data-act="callback">&#9742; Call back</button><button data-act="scheduled">&#128197; Scheduled</button>' +
-      '<button data-act="thinking">&#129300; Thinking</button>' +
+      '<button data-act="thinking">&#129300; Thinking</button><button data-act="parts">&#128230; Waiting for keys</button>' +
       '<button data-act="price">&#36; Price</button><button data-act="note">&#9998; Note</button>' +
       '<button data-act="confirm"' + (L.phone ? '' : ' disabled') + '>&#9993; Confirm text</button><button data-act="thanks"' + (L.phone ? '' : ' disabled') + '>&#9993; Thank-you text</button>' +
       '<button data-act="lost" class="danger">&#10005; Lost</button><button data-act="invoice">&#129534; Invoice</button></div>';
@@ -111,7 +111,7 @@
     if (act === 'done') sheet('<h3>Done: how much did you get?</h3><div class="row"><input id="amt" type="number" inputmode="decimal" step="0.01" placeholder="Amount $" value="' + (L.quoted || '') + '"></div>' + chips('pay', C.paymentOptions, 'cash') +
       (L.colleague ? '<div class="sub">Colleague job: your share is counted, not income.</div>' : '') +
       '<div class="row"><button class="secondary" data-close="1">Cancel</button><button class="primary" id="goDone">Record</button></div>');
-    else if (act === 'callback' || act === 'scheduled' || act === 'lost' || act === 'thinking') sheet('<h3>' + { callback: 'Call back', scheduled: 'Scheduled', lost: 'Lost', thinking: 'Customer is thinking' }[act] + '</h3><input id="nt" placeholder="' + (act === 'scheduled' ? 'When, e.g. tomorrow 10 am' : 'Note (optional)') + '"><div class="row"><button class="secondary" data-close="1">Cancel</button><button class="primary" id="goStatus" data-st="' + act + '">Save</button></div>');
+    else if (act === 'callback' || act === 'scheduled' || act === 'lost' || act === 'thinking' || act === 'parts') sheet('<h3>' + { callback: 'Call back', scheduled: 'Scheduled', lost: 'Lost', thinking: 'Customer is thinking', parts: 'Waiting for keys' }[act] + '</h3><input id="nt" placeholder="' + (act === 'scheduled' ? 'When, e.g. tomorrow 10 am' : 'Note (optional)') + '"><div class="row"><button class="secondary" data-close="1">Cancel</button><button class="primary" id="goStatus" data-st="' + act + '">Save</button></div>');
     else if (act === 'note') sheet('<h3>Note</h3><textarea id="nt" rows="3" placeholder="What to remember"></textarea><div class="row"><button class="secondary" data-close="1">Cancel</button><button class="primary" id="goNote">Save</button></div>');
     else if (act === 'price') sheet('<h3>Price for the customer</h3><div class="row"><input id="pr" type="number" inputmode="numeric" placeholder="Price $" value="' + (L.quoted || '') + '"></div><div class="row"><button class="secondary" data-close="1">Cancel</button><button class="secondary" id="goQuote">Save only</button><button class="primary" id="goPricePreview">Preview text</button></div>');
     else if (act === 'confirm' || act === 'thanks') smsPreview(act, 0);
@@ -140,7 +140,7 @@
     const B = t;
     if (t.id === 'goDone') { const amt = Number($('amt').value); if (!(amt > 0)) { toast('Enter the amount', true); return; } const pay = chipVal('pay'); const coll = !!L.colleague;
       return leadAction('leadDone', { amount: amt, payment: pay, colleague: coll ? 'colleague' : '' }, { status: 'Done', statusKey: 'done', usd: coll ? L.usd : amt }, 'Recorded ' + C.fmtMoney(amt), B); }
-    if (t.id === 'goStatus') { const st = t.dataset.st, lab = { callback: ['Call back', 'callback'], scheduled: ['Scheduled', 'scheduled'], lost: ['Lost', 'lost'], thinking: ['Customer thinking', 'thinking'] }[st]; return leadAction('leadStatus', { status: st, note: $('nt').value.trim() }, { status: lab[0], statusKey: lab[1] }, '', B); }
+    if (t.id === 'goStatus') { const st = t.dataset.st, lab = { callback: ['Call back', 'callback'], scheduled: ['Scheduled', 'scheduled'], lost: ['Lost', 'lost'], thinking: ['Customer thinking', 'thinking'], parts: ['Waiting for keys', 'parts'] }[st]; return leadAction('leadStatus', { status: st, note: $('nt').value.trim() }, { status: lab[0], statusKey: lab[1] }, '', B); }
     if (t.id === 'goNote') { const nt = $('nt').value.trim(); if (!nt) { toast('Write something first', true); return; } return leadAction('leadNote', { note: nt }, {}, 'Note saved', B); }
     if (t.id === 'goQuote') { const pr = Number($('pr').value); if (!(pr > 0)) { toast('Enter the price', true); return; } return leadAction('leadQuote', { price: pr }, { quoted: pr }, 'Quoted ' + C.fmtMoney(pr), B); }
     if (t.id === 'goPricePreview') { const pr = Number($('pr').value); if (!(pr > 0)) { toast('Enter the price', true); return; } return withBtn(B, () => smsPreview('price', pr)); }

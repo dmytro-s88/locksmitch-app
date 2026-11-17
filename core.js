@@ -90,7 +90,7 @@
     if (!L || L.statusKey !== 'scheduled' || L.visit === undefined) return (L && L.status) || '';   // undefined: bot not yet sending visit
     return (L.status || 'Scheduled') + ' · ' + (L.visit || 'no time set');
   };
-  C.statusClass = function (key) { return 'st-' + (/^(site|new|pending|thinking|callback|scheduled|done|lost|spam)$/.test(key) ? key : 'new'); };
+  C.statusClass = function (key) { return 'st-' + (/^(site|new|pending|thinking|parts|callback|scheduled|done|lost|spam)$/.test(key) ? key : 'new'); };
 
   /** State transitions. Pure: returns a new state object. */
   C.reduce = function (state, ev) {
