@@ -122,6 +122,7 @@
     const r = await call('leadSms', { num: state.lead.lead.num, kind: kind, price: price || 0, send: false });
     if (!r.ok) { if (!C.isUnauthorized(r)) toast(r.error || 'No text', true); return; }
     sheet('<h3>' + (r.already ? 'Already sent earlier' : 'Text to ' + C.fmtPhone(r.phone)) + '</h3><div class="preview">' + esc(r.text) + '</div>' +
+      (r.warrantyChoice && !r.already ? '<div class="row"><button class="secondary" id="goSwitch" data-kind="' + (kind === 'thanks' ? 'thanksnw' : 'thanks') + '">' + (kind === 'thanks' ? 'Without warranty' : 'With warranty') + '</button></div>' : '') +
       '<div class="row"><button class="secondary" data-close="1">Cancel</button>' + (r.already ? '' : '<button class="primary" id="goSend" data-kind="' + kind + '" data-price="' + (price || 0) + '">Send</button>') + '</div>');
   }
   async function smsSend(kind, price) {
@@ -145,6 +146,7 @@
     if (t.id === 'goNote') { const nt = $('nt').value.trim(); if (!nt) { toast('Write something first', true); return; } return leadAction('leadNote', { note: nt }, {}, 'Note saved', B); }
     if (t.id === 'goQuote') { const pr = Number($('pr').value); if (!(pr > 0)) { toast('Enter the price', true); return; } return leadAction('leadQuote', { price: pr }, { quoted: pr }, 'Quoted ' + C.fmtMoney(pr), B); }
     if (t.id === 'goPricePreview') { const pr = Number($('pr').value); if (!(pr > 0)) { toast('Enter the price', true); return; } return withBtn(B, () => smsPreview('price', pr)); }
+    if (t.id === 'goSwitch') return withBtn(B, () => smsPreview(t.dataset.kind, 0));
     if (t.id === 'goSend') return withBtn(B, () => smsSend(t.dataset.kind, Number(t.dataset.price) || 0));
   });
 
