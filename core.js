@@ -114,6 +114,11 @@
   C.canHandoff = function (L) { return !!L && !/^(lost|spam)$/.test(L.statusKey) && (!!L.colleague || !(Number(L.usd) > 0)); };
   C.handoffWho = function (chip, typed) { return String(typed || '').trim() || String(chip || '').trim(); };
 
+  // карточка With colleagues: отданные лиды ждут, пока коллега сделает, заплатит или откажется (Дима 2026-11-20)
+  C.collLine = function (c) { return (c.who || 'Colleague') + ' \u00b7 ' + (c.state === 'owed' ? 'owes you ~' + C.fmtMoney(c.expect) + ' of ' + C.fmtMoney(c.job) : c.done ? 'done, amount not set' : 'handed off, waiting'); };
+  C.collActions = function (c) { const waiting = c.state !== 'owed'; return { job: true, paid: true, back: !c.done, lost: !c.done, nothing: waiting && !!c.done }; };
+  C.collOwedTotal = function (list) { return Math.round((list || []).reduce(function (s, c) { return s + (c.state === 'owed' ? Number(c.expect) || 0 : 0); }, 0) * 100) / 100; };
+
   /** State transitions. Pure: returns a new state object. */
   C.reduce = function (state, ev) {
     const s = Object.assign({}, state || {});

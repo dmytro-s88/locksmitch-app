@@ -105,3 +105,13 @@ test('canHandoff: any lead that is not lost and has no payment of your own', () 
   assert.equal(C.canHandoff(null), false); });
 test('handoffWho: a typed name wins over the chip', () => {
   assert.equal(C.handoffWho('Sasha', ''), 'Sasha'); assert.equal(C.handoffWho('Sasha', '  Vlad '), 'Vlad'); assert.equal(C.handoffWho('', ''), ''); assert.equal(C.handoffWho(undefined, null), ''); });
+// карточка With colleagues (Дима 2026-11-20: «пусть висит, как будто должен; не факт, что коллега возьмёт»)
+test('collLine: who and where the job stands', () => {
+  assert.equal(C.collLine({ who: 'Vlad', state: 'waiting', done: false }), 'Vlad · handed off, waiting');
+  assert.equal(C.collLine({ who: '', state: 'waiting', done: true }), 'Colleague · done, amount not set');
+  assert.equal(C.collLine({ who: 'OZ', state: 'owed', done: true, job: 200, expect: 100 }), 'OZ · owes you ~$100.00 of $200.00'); });
+test('collActions: what can be done with a lead that is with a colleague', () => {
+  assert.deepEqual(C.collActions({ state: 'waiting', done: false }), { job: true, paid: true, back: true, lost: true, nothing: false });
+  assert.deepEqual(C.collActions({ state: 'waiting', done: true }), { job: true, paid: true, back: false, lost: false, nothing: true });
+  assert.deepEqual(C.collActions({ state: 'owed', done: true }), { job: true, paid: true, back: false, lost: false, nothing: false }); });
+test('collOwedTotal: sum of expected shares', () => { assert.equal(C.collOwedTotal([{ state: 'owed', expect: 100 }, { state: 'waiting', expect: 0 }, { state: 'owed', expect: 62.5 }]), 162.5); assert.equal(C.collOwedTotal(null), 0); });

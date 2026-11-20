@@ -168,3 +168,11 @@ main.dim { opacity: .7; transition: opacity .2s; }
 #incSheet .psheet { margin: 0 0 12px; background: var(--surface); }
 /* hand-off (2026-11-20) */
 .actgrid button.wide { grid-column: 1 / -1; }
+/* лиды у коллег (2026-11-20) */
+.cjob { padding: 8px 0; border-top: 1px solid var(--line); cursor: pointer; }
+.cjob:first-of-type { border-top: 0; }
+.csheet { margin: 8px 0 0; background: var(--bg); cursor: default; }
+.csheet .row > input { flex: 2; min-width: 0; }
+.sheet .row.wrap { flex-wrap: wrap; }
+.sheet .row.wrap > * { flex: 1 1 30%; }
+.sheet button.danger { color: #E89A9A; }

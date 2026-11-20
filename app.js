@@ -101,8 +101,8 @@
   const handNames = () => (state.meta && state.meta.colleagues && state.meta.colleagues.length ? state.meta.colleagues : ['Sasha', 'OZ']);
   const handForm = (who, typed, amt) => chips('who', handNames(), who || '') + '<input data-f="who" placeholder="Other name" autocomplete="off" value="' + esc(typed || '') + '">' +
     '<input data-f="amt" type="number" inputmode="decimal" step="0.01" placeholder="Job amount $ (optional)" value="' + esc(amt || '') + '">' +
-    '<div class="sub">The lead is closed as a colleague job and leaves your open and unpaid lists. With the job amount, your share shows in “Colleagues owe you”.</div>';
-  async function handoffSheet() { await ensureMeta(); const L = state.lead.lead; sheet('<h3>' + (L.colleague ? 'Colleague job: who and how much' : 'Hand off to a colleague') + '</h3>' + handForm('', '', '') + '<div class="row"><button class="secondary" data-close="1">Cancel</button><button class="primary" id="goHand">' + (L.colleague ? 'Save' : 'Hand off') + '</button></div>'); }
+    '<div class="sub">The lead leaves your Open list and waits in Money → With colleagues until he does the job, pays you, or you take it back. Add the job amount only when the job is done.</div>';
+  async function handoffSheet() { await ensureMeta(); const L = state.lead.lead; sheet('<h3>' + (L.colleague ? 'Colleague job: who and how much' : 'Hand off to a colleague') + '</h3>' + handForm('', '', '') + '<div class="row">' + (L.colleague && L.statusKey !== 'done' ? '<button class="secondary" id="goBack">Back to me</button>' : '') + '<button class="secondary" data-close="1">Cancel</button><button class="primary" id="goHand">' + (L.colleague ? 'Save' : 'Hand off') + '</button></div>'); }
 
   /** Optimistic lead action: patch now, call the bot, reload the card on success, roll back on error. */
   async function leadAction(action, params, patch, okMsg, btn) {
@@ -151,7 +151,8 @@
     if (t.id === 'goDone') { const amt = Number($('amt').value); if (!(amt > 0)) { toast('Enter the amount', true); return; } const pay = chipVal('pay'); const coll = !!L.colleague;
       return leadAction('leadDone', { amount: amt, payment: pay, colleague: coll ? 'colleague' : '' }, { status: 'Done', statusKey: 'done', usd: coll ? L.usd : amt }, 'Recorded ' + C.fmtMoney(amt), B); }
     if (t.id === 'goHand') { const who = C.handoffWho(chipVal('who'), $('sheet').querySelector('[data-f="who"]').value), amt = Number($('sheet').querySelector('[data-f="amt"]').value) || 0;
-      return leadAction('leadHandoff', { who: who, amount: amt }, { status: 'Done', statusKey: 'done', colleague: true }, 'Handed off' + (who ? ' to ' + who : ''), B); }
+      return leadAction('leadHandoff', { who: who, amount: amt }, amt > 0 ? { status: 'Done', statusKey: 'done', colleague: true } : { colleague: true }, 'Handed off' + (who ? ' to ' + who : ''), B); }
+    if (t.id === 'goBack') return leadAction('leadTakeBack', {}, { colleague: false }, 'Lead is back with you', B);
     if (t.id === 'goNoCharge') return leadAction('leadNoCharge', {}, { noCharge: true }, 'Marked: no charge', B);
     if (t.id === 'goStatus') { const st = t.dataset.st, lab = { callback: ['Call back', 'callback'], scheduled: ['Scheduled', 'scheduled'], lost: ['Lost', 'lost'], thinking: ['Customer thinking', 'thinking'], parts: ['Waiting for keys', 'parts'] }[st]; return leadAction('leadStatus', { status: st, note: $('nt').value.trim() }, { status: lab[0], statusKey: lab[1] }, '', B); }
     if (t.id === 'goNote') { const nt = $('nt').value.trim(); if (!nt) { toast('Write something first', true); return; } return leadAction('leadNote', { note: nt }, {}, 'Note saved', B); }
@@ -260,7 +261,9 @@
     if (U.length) html += '<div class="card checks unpaid"><div class="lab">Not paid yet</div>' + U.map(u => '<div class="row1 chk"><span>' + esc(C.unpaidLine(u)) + (u.quoted ? ' <span class="muted">· quoted ' + C.fmtMoney(u.quoted) + '</span>' : '') + '</span><button data-pay="' + u.num + '">Add payment</button></div>' + (P && P.where === 'row' && P.num === u.num ? paySheetHtml() : '')).join('') + '</div>';
     if (m.checks && m.checks.length) html += '<div class="card checks"><div class="lab">Checks not cashed</div>' + m.checks.map(c => '<div class="row1 chk"><span>' + esc(C.checkLine(c)) + '</span><b>' + C.fmtMoney(c.amount) + '</b><button data-cash="' + c.row + '" data-amt="' + c.amount + '">Cashed</button></div>').join('') + (m.checks.length > 1 ? '<div class="total"><span>Total</span><span>' + C.fmtMoney(m.checksTotal) + '</span></div>' : '') + '</div>';
     if (m.jobs && m.jobs.length) html += '<div class="card jobs"><div class="lab">Jobs · costs</div><div class="sub jsum">' + esc(C.jobsSummary(m.jobsTotals)) + '</div>' + m.jobs.map(j => '<div class="job' + (state.keyEdit && state.keyEdit.num === j.num ? ' open' : '') + '" data-job="' + j.num + '"><div class="row1"><span>#' + j.num + ' · ' + esc(j.title) + '</span><b>' + C.fmtMoney(j.net) + '</b></div><div class="sub">🔑 ' + esc(C.jobKeyLine(j)) + (j.auto && j.key ? ' <span class="auto">auto</span>' : '') + ' · paid ' + C.fmtMoney(j.paid) + '</div>' + (C.jobExtrasLine(j) ? '<div class="sub">🧾 ' + esc(C.jobExtrasLine(j)) + '</div>' : '') + (state.keyEdit && state.keyEdit.num === j.num ? keySheetHtml() : '') + '</div>').join('') + '<div class="sub" style="margin-top:6px">Tap a job to fix the key. Profit above already counts keys and job costs (PIN codes) as expenses on the day you paid.</div></div>';
-    if (m.owedTotal && !isDay) html += '<div class="card"><div class="lab">Colleagues owe you</div>' + m.owed.map(o => '<div class="row1"><span>#' + o.num + (o.name ? ' ' + esc(o.name) : '') + (o.who ? ' · ' + esc(o.who) : '') + '</span><b>' + C.fmtMoney(o.expect) + '</b></div>').join('') + '<div class="total"><span>Total</span><span>' + C.fmtMoney(m.owedTotal) + '</span></div></div>';
+    const CL = m.colleagues || [], CE = state.collEdit, owedSum = C.collOwedTotal(CL);
+    if (CL.length) html += '<div class="card coll"><div class="lab">With colleagues</div>' + CL.map(c => '<div class="cjob' + (CE && CE.num === c.num ? ' open' : '') + '" data-coll="' + c.num + '"><div class="row1"><span>#' + c.num + (c.name ? ' ' + esc(c.name) : '') + (c.title ? ' · ' + esc(c.title) : '') + '</span>' + (c.state === 'owed' ? '<b>' + C.fmtMoney(c.expect) + '</b>' : '') + '</div><div class="sub">&#129309; ' + esc(C.collLine(c)) + '</div>' + (CE && CE.num === c.num ? collSheetHtml(c) : '') + '</div>').join('') +
+      (owedSum ? '<div class="total"><span>Owed to you (estimate)</span><span>' + C.fmtMoney(owedSum) + '</span></div>' : '') + '<div class="sub" style="margin-top:6px">Tap a job: he did it, he paid you, or take it back.</div></div>';
     html += '<div class="btnrow two"><button class="primary" id="addInc">+ Income</button><button class="primary" id="addExp">+ Expense</button></div><div id="incSheet">' + (P && P.where === 'pick' ? paySheetHtml() : state.payPick ? payPickHtml() : '') + '</div><div id="expSheet"></div>';
     html += '<div class="lab" style="margin:8px 2px 6px;color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.05em">' + (isDay ? 'This day' : 'Latest') + '</div>';
     html += m.recent.length ? '<div class="ops">' + m.recent.map(o => '<div class="op"><div class="t"><div>' + esc(o.title) + '</div><div>' + esc([o.date, o.note].filter(Boolean).join(' · ').slice(0, 80)) + (o.check ? ' <span class="ck ' + (o.check === 'cashed' ? 'cashed' : 'uncashed') + '">' + (o.check === 'cashed' ? 'check cashed' : 'check not cashed') + '</span>' : '') + '</div></div><div class="a ' + (o.kind === 'income' ? 'in' : o.kind === 'miles' ? 'mi' : '') + '">' + (o.kind === 'miles' ? C.fmtMiles(o.amount) : (o.kind === 'income' ? '+' : '-') + C.fmtMoney(o.amount)) + '</div></div>').join('') + '</div>' : '<p class="muted">' + (isDay ? 'Nothing recorded this day.' : 'No entries this month.') + '</p>';
@@ -300,6 +303,34 @@
     if (amt === null) { toast('Enter the amount', true); return; }
     const r = await withBtn(btn, () => none ? call('leadNoCharge', { num: P.num }) : call('leadDone', { num: P.num, amount: amt, payment: P.pay, colleague: P.colleague ? 'colleague' : '' }));
     if (r.ok) { ['open', 'today', 'done'].forEach(f => store.del('lm_leads_' + f)); state.leads = {}; toast(none ? 'Marked: no charge' : 'Recorded ' + C.fmtMoney(amt)); loadMoney(); }
+    else if (!C.isUnauthorized(r)) toast(r.error || 'Not saved', true);
+  }
+  // ---------- лиды у коллег (Дима 2026-11-20: «пусть висит, как будто должен; не факт, что коллега возьмёт») ----------
+  function collSheetHtml(c) {
+    const E = state.collEdit, A = C.collActions(c);
+    return '<div class="sheet csheet">' +
+      '<div class="row"><input data-cf="job" type="number" inputmode="decimal" step="0.01" placeholder="Job amount $" value="' + esc(E.job) + '"><button class="secondary" data-cjob="1">He did it</button></div>' +
+      '<div class="row"><input data-cf="paid" type="number" inputmode="decimal" step="0.01" placeholder="He paid me $" value="' + esc(E.paid) + '"><button class="primary" data-cpaid="1">Got paid</button></div>' +
+      '<div class="sub">He did it: your share of the job amount is counted as owed. Got paid: recorded as your income today.</div>' +
+      '<div class="row wrap">' + (A.back ? '<button class="secondary" data-cback="1">Back to me</button>' : '') + (A.lost ? '<button class="secondary danger" data-clost="1">Lost</button>' : '') + (A.nothing ? '<button class="secondary" data-cnone="1">Nothing owed</button>' : '') +
+      '<button class="secondary" data-copen="1">Open lead</button><button class="secondary" data-cclose="1">Close</button></div></div>';
+  }
+  function collOpen(num) {
+    if (state.collEdit && state.collEdit.num === num) { state.collEdit = null; render(); return; }
+    const c = ((state.money && state.money.colleagues) || []).filter(x => x.num === num)[0]; if (!c) return;
+    state.collEdit = { num: num, job: c.job ? String(c.job) : '', paid: c.expect ? String(c.expect) : '' }; state.keyEdit = null; state.payEdit = null; state.payPick = false; render();
+  }
+  async function collAct(btn, kind) {
+    const E = state.collEdit; if (!E) return;
+    const c = ((state.money && state.money.colleagues) || []).filter(x => x.num === E.num)[0] || {};
+    let req, msg;
+    if (kind === 'job') { const a = C.payAmount(E.job); if (a === null) { toast('Enter the job amount', true); return; } req = ['leadDone', { num: E.num, amount: a, payment: '', colleague: c.who || 'colleague' }]; msg = 'Job ' + C.fmtMoney(a) + ' saved'; }
+    else if (kind === 'paid') { const a = C.payAmount(E.paid); if (a === null) { toast('Enter what he paid you', true); return; } req = ['leadColleaguePaid', { num: E.num, amount: a }]; msg = 'Recorded ' + C.fmtMoney(a); }
+    else if (kind === 'back') { req = ['leadTakeBack', { num: E.num }]; msg = 'Lead #' + E.num + ' is back in Open'; }
+    else if (kind === 'lost') { req = ['leadStatus', { num: E.num, status: 'lost', note: 'colleague did not take it' }]; msg = 'Marked lost'; }
+    else { req = ['leadNoCharge', { num: E.num }]; msg = 'Nothing owed'; }
+    const r = await withBtn(btn, () => call(req[0], req[1]));
+    if (r.ok) { ['open', 'today', 'done'].forEach(f => store.del('lm_leads_' + f)); state.leads = {}; toast(msg); loadMoney(); }
     else if (!C.isUnauthorized(r)) toast(r.error || 'Not saved', true);
   }
   // ---------- ключ по работе (Дима 2026-11-16) ----------
@@ -344,6 +375,7 @@
   }
   $('moneyBox').addEventListener('input', e => {
     if (e.target.id === 'payAmt' && state.payEdit) { state.payEdit.amt = e.target.value; return; }
+    if (state.collEdit && e.target.dataset.cf) { state.collEdit[e.target.dataset.cf] = e.target.value; return; }
     if (state.payEdit && e.target.dataset.f === 'who') { state.payEdit.hwho = e.target.value; return; }
     if (state.payEdit && e.target.dataset.f === 'amt') { state.payEdit.hamt = e.target.value; return; }
     const k = state.keyEdit; if (!k) return;
@@ -353,14 +385,15 @@
     else if (e.target.id === 'ktake') k.take = e.target.checked;
   });
   $('moneyBox').addEventListener('click', e => {
-    if (e.target.closest('.ksheet')) return;
+    if (e.target.closest('.ksheet, .csheet')) return;
+    const cr = e.target.closest('[data-coll]'); if (cr) { collOpen(Number(cr.dataset.coll)); return; }
     const row = e.target.closest('[data-job]'); if (row) openKey(Number(row.dataset.job));
   });
   async function loadMoney(month) {
     if (month) state.month = month;
     moneyDefaults();
     const ask = state.moneyMode === 'day' ? { day: state.moneyDay } : { month: state.month }, key = JSON.stringify(ask);
-    state.moneyKey = key; state.money = null; state.keyEdit = null; state.payEdit = null; state.payPick = false; render();
+    state.moneyKey = key; state.money = null; state.keyEdit = null; state.payEdit = null; state.payPick = false; state.collEdit = null; render();
     const r = await call('money', ask);
     if (state.moneyKey !== key) return;   // пока грузилось, переключили день/месяц
     if (r.ok) { state.money = r; render(); } else if (!C.isUnauthorized(r)) toast(r.error || 'Could not load', true);
@@ -389,6 +422,13 @@
       if (r.ok) { toast(r.text || 'Check cashed'); loadMoney(); } else if (!C.isUnauthorized(r)) toast(r.error || 'Not saved', true);
       return;
     }
+    if (t.dataset.cjob) return collAct(t, 'job');
+    if (t.dataset.cpaid) return collAct(t, 'paid');
+    if (t.dataset.cback) return collAct(t, 'back');
+    if (t.dataset.clost) return collAct(t, 'lost');
+    if (t.dataset.cnone) return collAct(t, 'none');
+    if (t.dataset.copen && state.collEdit) { const n = state.collEdit.num; state.collEdit = null; return withBtn(t, () => openLead(n)); }
+    if (t.dataset.cclose) { state.collEdit = null; render(); return; }
     if (t.dataset.pay) { const u = (state.money.unpaid || []).filter(x => x.num === Number(t.dataset.pay))[0]; if (u) payOpen(C.incomeChoices([u], [])[0], 'row'); return; }
     if (t.dataset.pchoice !== undefined) { const c = (state.payChoices || [])[Number(t.dataset.pchoice)]; if (c) payOpen(c, 'pick'); return; }
     if (t.dataset.pclose) { state.payEdit = null; state.payPick = false; render(); return; }
