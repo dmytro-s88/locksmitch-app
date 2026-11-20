@@ -94,3 +94,14 @@ test('incomeChoices: unpaid done jobs first, then open leads, no doubles', () =>
     [{ num: 61, name: 'Ann', vehicle: 'Kia Soul', service: 'spare key', quoted: 150, colleague: false, statusKey: 'scheduled' }, { num: 60, name: 'Tim', vehicle: 'Ram', service: 'lockout', statusKey: 'new' }, { num: 62, vehicle: '', service: '', colleague: true, statusKey: 'new' }]);
   assert.deepEqual(list, [{ num: 60, label: '#60 Tim · Ram · lockout', quoted: 100, done: true, colleague: false }, { num: 61, label: '#61 Ann · Kia Soul · spare key', quoted: 150, done: false, colleague: false }, { num: 62, label: '#62', quoted: 0, done: false, colleague: true }]);
   assert.deepEqual(C.incomeChoices(null, null), []); });
+// hand-off (Дима 2026-11-20: «когда я отдал другому локсмиту, чтобы у меня этот лид не светился»)
+test('canHandoff: any lead that is not lost and has no payment of your own', () => {
+  assert.equal(C.canHandoff({ statusKey: 'new', usd: 0 }), true);
+  assert.equal(C.canHandoff({ statusKey: 'done', usd: 0 }), true);
+  assert.equal(C.canHandoff({ statusKey: 'done', usd: 350 }), false);
+  assert.equal(C.canHandoff({ statusKey: 'done', usd: 50, colleague: true }), true);
+  assert.equal(C.canHandoff({ statusKey: 'lost', usd: 0 }), false);
+  assert.equal(C.canHandoff({ statusKey: 'spam', usd: 0 }), false);
+  assert.equal(C.canHandoff(null), false); });
+test('handoffWho: a typed name wins over the chip', () => {
+  assert.equal(C.handoffWho('Sasha', ''), 'Sasha'); assert.equal(C.handoffWho('Sasha', '  Vlad '), 'Vlad'); assert.equal(C.handoffWho('', ''), ''); assert.equal(C.handoffWho(undefined, null), ''); });

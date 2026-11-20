@@ -109,6 +109,11 @@
     return out;
   };
 
+  // ---------- hand-off: лид отдан коллеге (Дима 2026-11-20) ----------
+  /** Hand-off is offered unless the lead is lost/spam or you were paid for it yourself. A colleague lead can be opened again to set the name or the job amount. Pure. */
+  C.canHandoff = function (L) { return !!L && !/^(lost|spam)$/.test(L.statusKey) && (!!L.colleague || !(Number(L.usd) > 0)); };
+  C.handoffWho = function (chip, typed) { return String(typed || '').trim() || String(chip || '').trim(); };
+
   /** State transitions. Pure: returns a new state object. */
   C.reduce = function (state, ev) {
     const s = Object.assign({}, state || {});

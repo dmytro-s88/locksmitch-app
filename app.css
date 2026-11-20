@@ -166,3 +166,5 @@ main.dim { opacity: .7; transition: opacity .2s; }
 .card.unpaid .row1.chk { grid-template-columns: 1fr auto; }
 .card.unpaid .row1.chk button { white-space: nowrap; }
 #incSheet .psheet { margin: 0 0 12px; background: var(--surface); }
+/* hand-off (2026-11-20) */
+.actgrid button.wide { grid-column: 1 / -1; }

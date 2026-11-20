@@ -86,7 +86,8 @@
       '<button data-act="thinking">&#129300; Thinking</button><button data-act="parts">&#128230; Waiting for keys</button>' +
       '<button data-act="price">&#36; Price</button><button data-act="note">&#9998; Note</button>' +
       '<button data-act="confirm"' + (L.phone ? '' : ' disabled') + '>&#9993; Confirm text</button><button data-act="thanks"' + (L.phone ? '' : ' disabled') + '>&#9993; Thank-you text</button>' +
-      '<button data-act="lost" class="danger">&#10005; Lost</button><button data-act="invoice">&#129534; Invoice</button></div>';
+      (C.canHandoff(L) ? '<button data-act="handoff">&#129309; ' + (L.colleague ? 'Colleague job' : 'Hand off') + '</button>' : '') +
+      '<button data-act="lost" class="danger">&#10005; Lost</button><button data-act="invoice"' + (C.canHandoff(L) ? ' class="wide"' : '') + '>&#129534; Invoice</button></div>';
     if (!state.sheet) $('sheet').hidden = true;
   }
 
@@ -95,6 +96,13 @@
   function closeSheet() { $('sheet').hidden = true; $('sheet').innerHTML = ''; state.sheet = false; }
   const chips = (name, opts, on) => '<div class="chips" data-chips="' + name + '">' + opts.map(o => '<button type="button" data-v="' + o + '" class="' + (o === on ? 'on' : '') + '">' + o.charAt(0).toUpperCase() + o.slice(1) + '</button>').join('') + '</div>';
   const chipVal = name => { const b = document.querySelector('[data-chips="' + name + '"] button.on'); return b ? b.dataset.v : ''; };
+
+  /** Hand-off form: who took the job (chips from the bot + any name) and, if known, the job amount */
+  const handNames = () => (state.meta && state.meta.colleagues && state.meta.colleagues.length ? state.meta.colleagues : ['Sasha', 'OZ']);
+  const handForm = (who, typed, amt) => chips('who', handNames(), who || '') + '<input data-f="who" placeholder="Other name" autocomplete="off" value="' + esc(typed || '') + '">' +
+    '<input data-f="amt" type="number" inputmode="decimal" step="0.01" placeholder="Job amount $ (optional)" value="' + esc(amt || '') + '">' +
+    '<div class="sub">The lead is closed as a colleague job and leaves your open and unpaid lists. With the job amount, your share shows in “Colleagues owe you”.</div>';
+  async function handoffSheet() { await ensureMeta(); const L = state.lead.lead; sheet('<h3>' + (L.colleague ? 'Colleague job: who and how much' : 'Hand off to a colleague') + '</h3>' + handForm('', '', '') + '<div class="row"><button class="secondary" data-close="1">Cancel</button><button class="primary" id="goHand">' + (L.colleague ? 'Save' : 'Hand off') + '</button></div>'); }
 
   /** Optimistic lead action: patch now, call the bot, reload the card on success, roll back on error. */
   async function leadAction(action, params, patch, okMsg, btn) {
@@ -133,7 +141,7 @@
     else if (!C.isUnauthorized(r)) { toast(r.error || 'Not sent', true); if (r.text) sheet('<h3>Not sent. Send it yourself:</h3><div class="preview">' + esc(r.text) + '</div><div class="row"><button class="secondary" data-close="1">Close</button>' + (C.smsUrl(state.lead.lead.phone) ? '<a class="primary" style="display:flex;align-items:center;justify-content:center;text-decoration:none;border-radius:10px" href="' + esc(C.smsUrl(state.lead.lead.phone) + '&body=' + encodeURIComponent(r.text)) + '">Open Messages</a>' : '') + '</div>'); }
   }
 
-  $('leadActions').addEventListener('click', e => { const b = e.target.closest('button[data-act]'); if (!b || b.disabled) return; const act = b.dataset.act; if (act === 'confirm' || act === 'thanks') withBtn(b, () => smsPreview(act, 0)); else if (act === 'invoice') withBtn(b, openInvoiceDraft); else openActionSheet(act); });
+  $('leadActions').addEventListener('click', e => { const b = e.target.closest('button[data-act]'); if (!b || b.disabled) return; const act = b.dataset.act; if (act === 'confirm' || act === 'thanks') withBtn(b, () => smsPreview(act, 0)); else if (act === 'handoff') withBtn(b, handoffSheet); else if (act === 'invoice') withBtn(b, openInvoiceDraft); else openActionSheet(act); });
   $('sheet').addEventListener('click', e => {
     const t = e.target.closest('button'); if (!t) return;
     if (t.dataset.close) return closeSheet();
@@ -142,6 +150,8 @@
     const B = t;
     if (t.id === 'goDone') { const amt = Number($('amt').value); if (!(amt > 0)) { toast('Enter the amount', true); return; } const pay = chipVal('pay'); const coll = !!L.colleague;
       return leadAction('leadDone', { amount: amt, payment: pay, colleague: coll ? 'colleague' : '' }, { status: 'Done', statusKey: 'done', usd: coll ? L.usd : amt }, 'Recorded ' + C.fmtMoney(amt), B); }
+    if (t.id === 'goHand') { const who = C.handoffWho(chipVal('who'), $('sheet').querySelector('[data-f="who"]').value), amt = Number($('sheet').querySelector('[data-f="amt"]').value) || 0;
+      return leadAction('leadHandoff', { who: who, amount: amt }, { status: 'Done', statusKey: 'done', colleague: true }, 'Handed off' + (who ? ' to ' + who : ''), B); }
     if (t.id === 'goNoCharge') return leadAction('leadNoCharge', {}, { noCharge: true }, 'Marked: no charge', B);
     if (t.id === 'goStatus') { const st = t.dataset.st, lab = { callback: ['Call back', 'callback'], scheduled: ['Scheduled', 'scheduled'], lost: ['Lost', 'lost'], thinking: ['Customer thinking', 'thinking'], parts: ['Waiting for keys', 'parts'] }[st]; return leadAction('leadStatus', { status: st, note: $('nt').value.trim() }, { status: lab[0], statusKey: lab[1] }, '', B); }
     if (t.id === 'goNote') { const nt = $('nt').value.trim(); if (!nt) { toast('Write something first', true); return; } return leadAction('leadNote', { note: nt }, {}, 'Note saved', B); }
@@ -266,15 +276,23 @@
   }
   function paySheetHtml() {
     const P = state.payEdit;
+    if (P.mode === 'hand') return '<div class="sheet psheet"><h3>' + esc(P.label) + '</h3><div class="sub">A colleague did this job: who?</div>' + handForm(P.who, P.hwho, P.hamt) + '<div class="row"><button class="secondary" data-pback="1">Back</button><button class="primary" data-phsave="1">Save</button></div></div>';
     return '<div class="sheet psheet"><h3>' + esc(P.label) + '</h3><div class="row"><input id="payAmt" type="number" inputmode="decimal" step="0.01" placeholder="Amount $" value="' + esc(P.amt) + '"></div>' + chips('ppay', C.paymentOptions, P.pay) +
       (P.colleague ? '<div class="sub">Colleague job: your share is counted, not income.</div>' : '') + (P.done ? '' : '<div class="sub">The lead will be marked Done.</div>') +
-      '<div class="row">' + (P.done ? '<button class="secondary" data-pnone="1">No charge</button>' : '') + '<button class="secondary" data-pclose="1">Cancel</button><button class="primary" data-psave="1">Record</button></div></div>';
+      (P.done ? '<div class="row"><button class="secondary" data-pnone="1">No charge</button><button class="secondary" data-phand="1">&#129309; Colleague did it</button></div>' : '') +
+      '<div class="row"><button class="secondary" data-pclose="1">Cancel</button><button class="primary" data-psave="1">Record</button></div></div>';
   }
   function payOpen(c, where) { state.payEdit = { num: c.num, label: c.label, amt: c.quoted ? String(c.quoted) : '', pay: 'cash', done: !!c.done, colleague: !!c.colleague, where: where }; state.payPick = false; $('expSheet').innerHTML = ''; render(); const i = $('payAmt'); if (i) i.scrollIntoView({ block: 'center' }); }
   async function payPick() {
     state.payEdit = null; state.payPick = true; render();
     if (C.needsLeads(state, 'open', Date.now())) await loadLeadsInner('open');   // dispatch('leads') перерисует список
     const el = $('incSheet'); if (el && el.firstChild) el.scrollIntoView({ block: 'nearest' });
+  }
+  async function saveHand(btn) {
+    const P = state.payEdit; if (!P) return;
+    const who = C.handoffWho(P.who, P.hwho), r = await withBtn(btn, () => call('leadHandoff', { num: P.num, who: who, amount: Number(P.hamt) || 0 }));
+    if (r.ok) { ['open', 'today', 'done'].forEach(f => store.del('lm_leads_' + f)); state.leads = {}; toast('Handed off' + (who ? ' to ' + who : '')); loadMoney(); }
+    else if (!C.isUnauthorized(r)) toast(r.error || 'Not saved', true);
   }
   async function savePay(btn, none) {
     const P = state.payEdit; if (!P) return;
@@ -326,6 +344,8 @@
   }
   $('moneyBox').addEventListener('input', e => {
     if (e.target.id === 'payAmt' && state.payEdit) { state.payEdit.amt = e.target.value; return; }
+    if (state.payEdit && e.target.dataset.f === 'who') { state.payEdit.hwho = e.target.value; return; }
+    if (state.payEdit && e.target.dataset.f === 'amt') { state.payEdit.hamt = e.target.value; return; }
     const k = state.keyEdit; if (!k) return;
     if (e.target.id === 'kq') { k.q = e.target.value; $('klist').innerHTML = keyListHtml(); }
     else if (e.target.id === 'kunit') k.unit = e.target.value;
@@ -374,6 +394,10 @@
     if (t.dataset.pclose) { state.payEdit = null; state.payPick = false; render(); return; }
     if (t.dataset.psave) return savePay(t, false);
     if (t.dataset.pnone) return savePay(t, true);
+    if (t.dataset.phand && state.payEdit) { await withBtn(t, ensureMeta); if (state.payEdit) { state.payEdit.mode = 'hand'; render(); } return; }
+    if (t.dataset.pback && state.payEdit) { state.payEdit.mode = ''; render(); return; }
+    if (t.dataset.phsave) return saveHand(t);
+    if (t.closest('[data-chips="who"]')) { t.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === t)); if (state.payEdit) state.payEdit.who = t.dataset.v; return; }
     if (t.closest('[data-chips="ppay"]')) { t.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === t)); if (state.payEdit) state.payEdit.pay = t.dataset.v; return; }
     if (t.id === 'addInc') return withBtn(t, payPick);
     if (t.id === 'addExp') { state.payEdit = null; state.payPick = false; render(); return withBtn($('addExp'), expenseSheet); }
