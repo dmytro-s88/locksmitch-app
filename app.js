@@ -61,7 +61,7 @@
     $('leadList').innerHTML = leads.map(L => '<li data-num="' + L.num + '" class="' + (L.urgent ? 'urgent' : '') + '">' +
       '<div class="row1"><b>#' + L.num + (L.name ? ' ' + esc(L.name) : '') + '</b><span class="pill ' + C.statusClass(L.statusKey) + '">' + esc(C.statusText(L)) + '</span></div>' +
       '<div>' + esc([L.vehicle, L.service].filter(Boolean).join(' · ')) + '</div>' +
-      '<div class="sub">' + esc([L.city || (L.address ? 'address on card' : 'no address'), L.source, L.date, L.quoted ? 'quoted ' + C.fmtMoney(L.quoted) : '', L.usd ? C.fmtMoney(L.usd) : '', L.colleague ? 'colleague job' : '', L.spanish ? 'Spanish' : ''].filter(Boolean).join(' · ')) + '</div></li>').join('');
+      '<div class="sub">' + esc([L.city || (L.address ? 'address on card' : 'no address'), L.source, L.date, L.quoted ? 'quoted ' + C.fmtMoney(L.quoted) : '', L.usd ? C.fmtMoney(L.usd) : '', C.needsPayment(L) ? 'not paid' : '', L.colleague ? 'colleague job' : '', L.spanish ? 'Spanish' : ''].filter(Boolean).join(' · ')) + '</div></li>').join('');
     $('leadsEmpty').hidden = leads.length > 0;
   }
 
@@ -81,7 +81,7 @@
       (L.notes ? '<div class="card"><div class="lab">Notes</div><pre class="notes">' + esc(L.notes.replace(/;\s*/g, '\n')) + '</pre></div>' : '');
     const pend = state.pending && state.pending[L.num];
     $('leadActions').innerHTML = '<div class="actgrid">' +
-      (L.statusKey !== 'done' ? '<button class="done" data-act="done"' + (pend ? ' disabled' : '') + '>' + (pend ? '<span class="spin"></span>' : '&#10003; Done') + '</button>' : '') +
+      (L.statusKey !== 'done' ? '<button class="done" data-act="done"' + (pend ? ' disabled' : '') + '>' + (pend ? '<span class="spin"></span>' : '&#10003; Done') + '</button>' : C.needsPayment(L) ? '<button class="done" data-act="done"' + (pend ? ' disabled' : '') + '>' + (pend ? '<span class="spin"></span>' : '&#36; Add payment') + '</button>' : '') +
       '<button data-act="callback">&#9742; Call back</button><button data-act="scheduled">&#128197; Scheduled</button>' +
       '<button data-act="thinking">&#129300; Thinking</button><button data-act="parts">&#128230; Waiting for keys</button>' +
       '<button data-act="price">&#36; Price</button><button data-act="note">&#9998; Note</button>' +
@@ -109,9 +109,9 @@
 
   function openActionSheet(act) {
     const L = state.lead.lead;
-    if (act === 'done') sheet('<h3>Done: how much did you get?</h3><div class="row"><input id="amt" type="number" inputmode="decimal" step="0.01" placeholder="Amount $" value="' + (L.quoted || '') + '"></div>' + chips('pay', C.paymentOptions, 'cash') +
+    if (act === 'done') sheet('<h3>' + (L.statusKey === 'done' ? 'Payment' : 'Done') + ': how much did you get?</h3><div class="row"><input id="amt" type="number" inputmode="decimal" step="0.01" placeholder="Amount $" value="' + (L.quoted || '') + '"></div>' + chips('pay', C.paymentOptions, 'cash') +
       (L.colleague ? '<div class="sub">Colleague job: your share is counted, not income.</div>' : '') +
-      '<div class="row"><button class="secondary" data-close="1">Cancel</button><button class="primary" id="goDone">Record</button></div>');
+      '<div class="row">' + (L.statusKey === 'done' ? '<button class="secondary" id="goNoCharge">No charge</button>' : '') + '<button class="secondary" data-close="1">Cancel</button><button class="primary" id="goDone">Record</button></div>');
     else if (act === 'callback' || act === 'scheduled' || act === 'lost' || act === 'thinking' || act === 'parts') sheet('<h3>' + { callback: 'Call back', scheduled: 'Scheduled', lost: 'Lost', thinking: 'Customer is thinking', parts: 'Waiting for keys' }[act] + '</h3><input id="nt" placeholder="' + (act === 'scheduled' ? 'When, e.g. tomorrow 10 am' : 'Note (optional)') + '"><div class="row"><button class="secondary" data-close="1">Cancel</button><button class="primary" id="goStatus" data-st="' + act + '">Save</button></div>');
     else if (act === 'note') sheet('<h3>Note</h3><textarea id="nt" rows="3" placeholder="What to remember"></textarea><div class="row"><button class="secondary" data-close="1">Cancel</button><button class="primary" id="goNote">Save</button></div>');
     else if (act === 'price') sheet('<h3>Price for the customer</h3><div class="row"><input id="pr" type="number" inputmode="numeric" placeholder="Price $" value="' + (L.quoted || '') + '"></div><div class="row"><button class="secondary" data-close="1">Cancel</button><button class="secondary" id="goQuote">Save only</button><button class="primary" id="goPricePreview">Preview text</button></div>');
@@ -142,6 +142,7 @@
     const B = t;
     if (t.id === 'goDone') { const amt = Number($('amt').value); if (!(amt > 0)) { toast('Enter the amount', true); return; } const pay = chipVal('pay'); const coll = !!L.colleague;
       return leadAction('leadDone', { amount: amt, payment: pay, colleague: coll ? 'colleague' : '' }, { status: 'Done', statusKey: 'done', usd: coll ? L.usd : amt }, 'Recorded ' + C.fmtMoney(amt), B); }
+    if (t.id === 'goNoCharge') return leadAction('leadNoCharge', {}, { noCharge: true }, 'Marked: no charge', B);
     if (t.id === 'goStatus') { const st = t.dataset.st, lab = { callback: ['Call back', 'callback'], scheduled: ['Scheduled', 'scheduled'], lost: ['Lost', 'lost'], thinking: ['Customer thinking', 'thinking'], parts: ['Waiting for keys', 'parts'] }[st]; return leadAction('leadStatus', { status: st, note: $('nt').value.trim() }, { status: lab[0], statusKey: lab[1] }, '', B); }
     if (t.id === 'goNote') { const nt = $('nt').value.trim(); if (!nt) { toast('Write something first', true); return; } return leadAction('leadNote', { note: nt }, {}, 'Note saved', B); }
     if (t.id === 'goQuote') { const pr = Number($('pr').value); if (!(pr > 0)) { toast('Enter the price', true); return; } return leadAction('leadQuote', { price: pr }, { quoted: pr }, 'Quoted ' + C.fmtMoney(pr), B); }
@@ -245,13 +246,43 @@
     if (!m) { html += '<p class="muted">Loading…</p>'; box.innerHTML = html; return; }
     if (isDay) html += '<div class="today"><div class="lab">Earned</div><div class="big">' + C.fmtMoney(m.income) + '</div><div class="muted">' + esc(C.daySummary(m.recent, m.miles)) + '</div></div>';
     html += '<div class="tiles">' + tile('Income', C.fmtMoney(m.income)) + tile('Expenses', C.fmtMoney(m.expenses)) + tile('Profit', C.fmtMoney(m.profit), m.profit >= 0 ? 'pos' : 'neg') + tile('Miles', C.fmtMiles(m.miles) || '0 mi') + '</div>';
+    const P = state.payEdit, U = m.unpaid || [];
+    if (U.length) html += '<div class="card checks unpaid"><div class="lab">Not paid yet</div>' + U.map(u => '<div class="row1 chk"><span>' + esc(C.unpaidLine(u)) + (u.quoted ? ' <span class="muted">· quoted ' + C.fmtMoney(u.quoted) + '</span>' : '') + '</span><button data-pay="' + u.num + '">Add payment</button></div>' + (P && P.where === 'row' && P.num === u.num ? paySheetHtml() : '')).join('') + '</div>';
     if (m.checks && m.checks.length) html += '<div class="card checks"><div class="lab">Checks not cashed</div>' + m.checks.map(c => '<div class="row1 chk"><span>' + esc(C.checkLine(c)) + '</span><b>' + C.fmtMoney(c.amount) + '</b><button data-cash="' + c.row + '" data-amt="' + c.amount + '">Cashed</button></div>').join('') + (m.checks.length > 1 ? '<div class="total"><span>Total</span><span>' + C.fmtMoney(m.checksTotal) + '</span></div>' : '') + '</div>';
     if (m.jobs && m.jobs.length) html += '<div class="card jobs"><div class="lab">Jobs · costs</div><div class="sub jsum">' + esc(C.jobsSummary(m.jobsTotals)) + '</div>' + m.jobs.map(j => '<div class="job' + (state.keyEdit && state.keyEdit.num === j.num ? ' open' : '') + '" data-job="' + j.num + '"><div class="row1"><span>#' + j.num + ' · ' + esc(j.title) + '</span><b>' + C.fmtMoney(j.net) + '</b></div><div class="sub">🔑 ' + esc(C.jobKeyLine(j)) + (j.auto && j.key ? ' <span class="auto">auto</span>' : '') + ' · paid ' + C.fmtMoney(j.paid) + '</div>' + (C.jobExtrasLine(j) ? '<div class="sub">🧾 ' + esc(C.jobExtrasLine(j)) + '</div>' : '') + (state.keyEdit && state.keyEdit.num === j.num ? keySheetHtml() : '') + '</div>').join('') + '<div class="sub" style="margin-top:6px">Tap a job to fix the key. Profit above already counts keys and job costs (PIN codes) as expenses on the day you paid.</div></div>';
     if (m.owedTotal && !isDay) html += '<div class="card"><div class="lab">Colleagues owe you</div>' + m.owed.map(o => '<div class="row1"><span>#' + o.num + (o.name ? ' ' + esc(o.name) : '') + (o.who ? ' · ' + esc(o.who) : '') + '</span><b>' + C.fmtMoney(o.expect) + '</b></div>').join('') + '<div class="total"><span>Total</span><span>' + C.fmtMoney(m.owedTotal) + '</span></div></div>';
-    html += '<div class="btnrow stack"><button class="primary" id="addExp">+ Expense</button></div><div id="expSheet"></div>';
+    html += '<div class="btnrow two"><button class="primary" id="addInc">+ Income</button><button class="primary" id="addExp">+ Expense</button></div><div id="incSheet">' + (P && P.where === 'pick' ? paySheetHtml() : state.payPick ? payPickHtml() : '') + '</div><div id="expSheet"></div>';
     html += '<div class="lab" style="margin:8px 2px 6px;color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.05em">' + (isDay ? 'This day' : 'Latest') + '</div>';
     html += m.recent.length ? '<div class="ops">' + m.recent.map(o => '<div class="op"><div class="t"><div>' + esc(o.title) + '</div><div>' + esc([o.date, o.note].filter(Boolean).join(' · ').slice(0, 80)) + (o.check ? ' <span class="ck ' + (o.check === 'cashed' ? 'cashed' : 'uncashed') + '">' + (o.check === 'cashed' ? 'check cashed' : 'check not cashed') + '</span>' : '') + '</div></div><div class="a ' + (o.kind === 'income' ? 'in' : o.kind === 'miles' ? 'mi' : '') + '">' + (o.kind === 'miles' ? C.fmtMiles(o.amount) : (o.kind === 'income' ? '+' : '-') + C.fmtMoney(o.amount)) + '</div></div>').join('') + '</div>' : '<p class="muted">' + (isDay ? 'Nothing recorded this day.' : 'No entries this month.') + '</p>';
     box.innerHTML = html;
+  }
+  // ---------- доход по лиду (Дима 2026-11-20: «как добавить доход? нет кнопки, надо чтоб по каждому лиду было легко») ----------
+  function payPickHtml() {
+    const open = state.leads.open, list = state.payChoices = C.incomeChoices(state.money && state.money.unpaid, open ? open.leads : []);
+    return '<div class="sheet psheet"><h3>Income: which job?</h3>' +
+      (list.length ? '<div class="klist">' + list.map((c, i) => '<button class="kitem" data-pchoice="' + i + '"><span>' + esc(c.label) + '</span><span class="muted">' + (c.done ? 'done, not paid' : 'open') + (c.quoted ? ' · quoted ' + C.fmtMoney(c.quoted) : '') + '</span></button>').join('') + '</div>' : '') +
+      (open ? (list.length ? '' : '<p class="muted">No open jobs and nothing unpaid. Income is recorded per lead.</p>') : '<p class="muted">Loading leads…</p>') +
+      '<div class="row"><button class="secondary" data-pclose="1">Cancel</button></div></div>';
+  }
+  function paySheetHtml() {
+    const P = state.payEdit;
+    return '<div class="sheet psheet"><h3>' + esc(P.label) + '</h3><div class="row"><input id="payAmt" type="number" inputmode="decimal" step="0.01" placeholder="Amount $" value="' + esc(P.amt) + '"></div>' + chips('ppay', C.paymentOptions, P.pay) +
+      (P.colleague ? '<div class="sub">Colleague job: your share is counted, not income.</div>' : '') + (P.done ? '' : '<div class="sub">The lead will be marked Done.</div>') +
+      '<div class="row">' + (P.done ? '<button class="secondary" data-pnone="1">No charge</button>' : '') + '<button class="secondary" data-pclose="1">Cancel</button><button class="primary" data-psave="1">Record</button></div></div>';
+  }
+  function payOpen(c, where) { state.payEdit = { num: c.num, label: c.label, amt: c.quoted ? String(c.quoted) : '', pay: 'cash', done: !!c.done, colleague: !!c.colleague, where: where }; state.payPick = false; $('expSheet').innerHTML = ''; render(); const i = $('payAmt'); if (i) i.scrollIntoView({ block: 'center' }); }
+  async function payPick() {
+    state.payEdit = null; state.payPick = true; render();
+    if (C.needsLeads(state, 'open', Date.now())) await loadLeadsInner('open');   // dispatch('leads') перерисует список
+    const el = $('incSheet'); if (el && el.firstChild) el.scrollIntoView({ block: 'nearest' });
+  }
+  async function savePay(btn, none) {
+    const P = state.payEdit; if (!P) return;
+    const amt = none ? 0 : C.payAmount(P.amt);
+    if (amt === null) { toast('Enter the amount', true); return; }
+    const r = await withBtn(btn, () => none ? call('leadNoCharge', { num: P.num }) : call('leadDone', { num: P.num, amount: amt, payment: P.pay, colleague: P.colleague ? 'colleague' : '' }));
+    if (r.ok) { ['open', 'today', 'done'].forEach(f => store.del('lm_leads_' + f)); state.leads = {}; toast(none ? 'Marked: no charge' : 'Recorded ' + C.fmtMoney(amt)); loadMoney(); }
+    else if (!C.isUnauthorized(r)) toast(r.error || 'Not saved', true);
   }
   // ---------- ключ по работе (Дима 2026-11-16) ----------
   function keyListHtml() {
@@ -294,6 +325,7 @@
     if (r.ok) { state.keyEdit = null; toast(r.text || 'Saved'); loadMoney(); } else if (!C.isUnauthorized(r)) toast(r.error || 'Not saved', true);
   }
   $('moneyBox').addEventListener('input', e => {
+    if (e.target.id === 'payAmt' && state.payEdit) { state.payEdit.amt = e.target.value; return; }
     const k = state.keyEdit; if (!k) return;
     if (e.target.id === 'kq') { k.q = e.target.value; $('klist').innerHTML = keyListHtml(); }
     else if (e.target.id === 'kunit') k.unit = e.target.value;
@@ -308,7 +340,7 @@
     if (month) state.month = month;
     moneyDefaults();
     const ask = state.moneyMode === 'day' ? { day: state.moneyDay } : { month: state.month }, key = JSON.stringify(ask);
-    state.moneyKey = key; state.money = null; state.keyEdit = null; render();
+    state.moneyKey = key; state.money = null; state.keyEdit = null; state.payEdit = null; state.payPick = false; render();
     const r = await call('money', ask);
     if (state.moneyKey !== key) return;   // пока грузилось, переключили день/месяц
     if (r.ok) { state.money = r; render(); } else if (!C.isUnauthorized(r)) toast(r.error || 'Could not load', true);
@@ -337,7 +369,14 @@
       if (r.ok) { toast(r.text || 'Check cashed'); loadMoney(); } else if (!C.isUnauthorized(r)) toast(r.error || 'Not saved', true);
       return;
     }
-    if (t.id === 'addExp') return withBtn(t, expenseSheet);
+    if (t.dataset.pay) { const u = (state.money.unpaid || []).filter(x => x.num === Number(t.dataset.pay))[0]; if (u) payOpen(C.incomeChoices([u], [])[0], 'row'); return; }
+    if (t.dataset.pchoice !== undefined) { const c = (state.payChoices || [])[Number(t.dataset.pchoice)]; if (c) payOpen(c, 'pick'); return; }
+    if (t.dataset.pclose) { state.payEdit = null; state.payPick = false; render(); return; }
+    if (t.dataset.psave) return savePay(t, false);
+    if (t.dataset.pnone) return savePay(t, true);
+    if (t.closest('[data-chips="ppay"]')) { t.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === t)); if (state.payEdit) state.payEdit.pay = t.dataset.v; return; }
+    if (t.id === 'addInc') return withBtn(t, payPick);
+    if (t.id === 'addExp') { state.payEdit = null; state.payPick = false; render(); return withBtn($('addExp'), expenseSheet); }
     if (t.dataset.close === 'exp') { $('expSheet').innerHTML = ''; return; }
     if (t.closest('[data-chips="scope"]')) { t.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === t)); const sel = $('exCat'), list = JSON.parse(sel.dataset[t.dataset.v === 'personal' ? 'p' : 'b']); sel.innerHTML = list.map(c => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join(''); return; }
     if (t.id === 'goExp') {

@@ -96,6 +96,19 @@
   };
   C.statusClass = function (key) { return 'st-' + (/^(site|new|pending|thinking|parts|callback|scheduled|done|lost|spam)$/.test(key) ? key : 'new'); };
 
+  // ---------- оплата по лиду (Дима 2026-11-20) ----------
+  /** A done lead with no payment recorded: the card shows "Add payment". Colleague jobs and "no charge" jobs are not asked. Pure. */
+  C.needsPayment = function (L) { return !!L && L.statusKey === 'done' && !(Number(L.usd) > 0) && !L.colleague && !L.noCharge; };
+  C.unpaidLine = function (u, now) { return ['#' + u.num + (u.name ? ' ' + u.name : ''), u.title, C.dayLabel(u.date, now)].filter(Boolean).join(' \u00b7 '); };
+  C.payAmount = function (v) { const t = String(v == null ? '' : v).trim(), n = Number(t); return t !== '' && isFinite(n) && n > 0 ? n : null; };
+  /** Jobs to pick for "+ Income": done but not paid first, then open leads. Pure. */
+  C.incomeChoices = function (unpaid, open) {
+    const seen = {}, out = [];
+    (unpaid || []).forEach(function (u) { seen[u.num] = 1; out.push({ num: u.num, label: ['#' + u.num + (u.name ? ' ' + u.name : ''), u.title].filter(Boolean).join(' \u00b7 '), quoted: Number(u.quoted) || 0, done: true, colleague: false }); });
+    (open || []).forEach(function (L) { if (seen[L.num]) return; seen[L.num] = 1; out.push({ num: L.num, label: ['#' + L.num + (L.name ? ' ' + L.name : ''), L.vehicle, L.service].filter(Boolean).join(' \u00b7 '), quoted: Number(L.quoted) || 0, done: false, colleague: !!L.colleague }); });
+    return out;
+  };
+
   /** State transitions. Pure: returns a new state object. */
   C.reduce = function (state, ev) {
     const s = Object.assign({}, state || {});

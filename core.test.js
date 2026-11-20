@@ -76,3 +76,21 @@ test('filterStock: every word must match, in stock first', () => {
   assert.deepEqual(C.filterStock(items, 'ford flip').map(i => i.name), ['SUPALAND Ford 3-button flip key fob, N5F-A08TAA']);
   assert.deepEqual(C.filterStock(items, 'n5fa08').length, 1);
   assert.equal(C.filterStock(items, '').length, 3); });
+// оплата по лиду (Дима 2026-11-20: «как добавить доход? нет кнопки, надо чтоб по каждому лиду было легко»)
+test('needsPayment: a done lead with nothing received', () => {
+  assert.equal(C.needsPayment({ statusKey: 'done', usd: 0 }), true);
+  assert.equal(C.needsPayment({ statusKey: 'done', usd: 100 }), false);
+  assert.equal(C.needsPayment({ statusKey: 'done', usd: 0, colleague: true }), false);
+  assert.equal(C.needsPayment({ statusKey: 'done', usd: 0, noCharge: true }), false);
+  assert.equal(C.needsPayment({ statusKey: 'scheduled', usd: 0 }), false);
+  assert.equal(C.needsPayment(null), false); });
+test('unpaidLine: lead number with name, car, day', () => { const now = new Date(2026, 10, 20, 7);
+  assert.equal(C.unpaidLine({ num: 60, name: 'Tim', title: '2017 Dodge Ram Truck · lockout', date: '2026-11-20' }, now), '#60 Tim · 2017 Dodge Ram Truck · lockout · Today');
+  assert.equal(C.unpaidLine({ num: 36, name: '', title: '', date: '2026-11-13' }, now), '#36 · Fri 11/13'); });
+test('payAmount: a positive amount or null', () => {
+  assert.equal(C.payAmount('100'), 100); assert.equal(C.payAmount(' 75.50 '), 75.5); assert.equal(C.payAmount(''), null); assert.equal(C.payAmount('0'), null); assert.equal(C.payAmount('-5'), null); assert.equal(C.payAmount('abc'), null); });
+test('incomeChoices: unpaid done jobs first, then open leads, no doubles', () => {
+  const list = C.incomeChoices([{ num: 60, name: 'Tim', title: 'Ram · lockout', date: '2026-11-20', quoted: 100 }],
+    [{ num: 61, name: 'Ann', vehicle: 'Kia Soul', service: 'spare key', quoted: 150, colleague: false, statusKey: 'scheduled' }, { num: 60, name: 'Tim', vehicle: 'Ram', service: 'lockout', statusKey: 'new' }, { num: 62, vehicle: '', service: '', colleague: true, statusKey: 'new' }]);
+  assert.deepEqual(list, [{ num: 60, label: '#60 Tim · Ram · lockout', quoted: 100, done: true, colleague: false }, { num: 61, label: '#61 Ann · Kia Soul · spare key', quoted: 150, done: false, colleague: false }, { num: 62, label: '#62', quoted: 0, done: false, colleague: true }]);
+  assert.deepEqual(C.incomeChoices(null, null), []); });

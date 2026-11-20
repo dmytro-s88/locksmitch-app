@@ -161,3 +161,8 @@ main.dim { opacity: .7; transition: opacity .2s; }
 .ksheet .fld { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
 .ksheet .chk { display: flex; align-items: center; gap: 8px; font-size: 15px; }
 .ksheet .chk input { width: 22px; min-height: 22px; height: 22px; }
+/* доход по лиду (2026-11-20) */
+.psheet { margin: 8px 0 0; background: var(--bg); }
+.card.unpaid .row1.chk { grid-template-columns: 1fr auto; }
+.card.unpaid .row1.chk button { white-space: nowrap; }
+#incSheet .psheet { margin: 0 0 12px; background: var(--surface); }
