@@ -130,7 +130,7 @@
     const r = await call('leadSms', { num: state.lead.lead.num, kind: kind, price: price || 0, send: false });
     if (!r.ok) { if (!C.isUnauthorized(r)) toast(r.error || 'No text', true); return; }
     sheet('<h3>' + (r.already ? 'Already sent earlier' : 'Text to ' + C.fmtPhone(r.phone)) + '</h3><div class="preview">' + esc(r.text) + '</div>' +
-      (r.warrantyChoice && !r.already ? '<div class="row"><button class="secondary" id="goSwitch" data-kind="' + (kind === 'thanks' ? 'thanksnw' : 'thanks') + '">' + (kind === 'thanks' ? 'Without warranty' : 'With warranty') + '</button></div>' : '') +
+      (r.warrantyChoice && !r.already ? (sw => '<div class="row"><button class="secondary" id="goSwitch" data-kind="' + sw.kind + '">' + sw.label + '</button></div>')(C.thanksSwitch(kind, r)) : '') +
       '<div class="row"><button class="secondary" data-close="1">Cancel</button>' + (r.already ? '' : '<button class="primary" id="goSend" data-kind="' + kind + '" data-price="' + (price || 0) + '">Send</button>') + '</div>');
   }
   async function smsSend(kind, price) {

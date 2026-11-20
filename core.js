@@ -119,6 +119,12 @@
   C.collActions = function (c) { const waiting = c.state !== 'owed'; return { job: true, paid: true, back: !c.done, lost: !c.done, nothing: waiting && !!c.done }; };
   C.collOwedTotal = function (list) { return Math.round((list || []).reduce(function (s, c) { return s + (c.state === 'owed' ? Number(c.expect) || 0 : 0); }, 0) * 100) / 100; };
 
+  /** Thank-you preview: the switch button offers the opposite of what the text has now (bot v284 says it in `warranty`). Pure. */
+  C.thanksSwitch = function (kind, r) {
+    const has = r && typeof r.warranty === 'boolean' ? r.warranty : kind !== 'thanksnw';
+    return has ? { kind: 'thanksnw', label: 'Without warranty' } : { kind: r && typeof r.warranty === 'boolean' ? 'thanksw' : 'thanks', label: 'With warranty' };
+  };
+
   /** State transitions. Pure: returns a new state object. */
   C.reduce = function (state, ev) {
     const s = Object.assign({}, state || {});

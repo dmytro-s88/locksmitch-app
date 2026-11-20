@@ -115,3 +115,11 @@ test('collActions: what can be done with a lead that is with a colleague', () =>
   assert.deepEqual(C.collActions({ state: 'waiting', done: true }), { job: true, paid: true, back: false, lost: false, nothing: true });
   assert.deepEqual(C.collActions({ state: 'owed', done: true }), { job: true, paid: true, back: false, lost: false, nothing: false }); });
 test('collOwedTotal: sum of expected shares', () => { assert.equal(C.collOwedTotal([{ state: 'owed', expect: 100 }, { state: 'waiting', expect: 0 }, { state: 'owed', expect: 62.5 }]), 162.5); assert.equal(C.collOwedTotal(null), 0); });
+// Дима 2026-11-20: кнопка «With warranty» должна быть и тогда, когда бот сам гарантию не поставил
+test('thanksSwitch: the button offers the opposite of what the text has now', () => {
+  assert.deepEqual(C.thanksSwitch('thanks', { warranty: true }), { kind: 'thanksnw', label: 'Without warranty' });
+  assert.deepEqual(C.thanksSwitch('thanks', { warranty: false }), { kind: 'thanksw', label: 'With warranty' });
+  assert.deepEqual(C.thanksSwitch('thanksw', { warranty: true }), { kind: 'thanksnw', label: 'Without warranty' });
+  assert.deepEqual(C.thanksSwitch('thanksnw', { warranty: false }), { kind: 'thanksw', label: 'With warranty' });
+  assert.deepEqual(C.thanksSwitch('thanks', {}), { kind: 'thanksnw', label: 'Without warranty' });   // old bot: no warranty field
+  assert.deepEqual(C.thanksSwitch('thanksnw', {}), { kind: 'thanks', label: 'With warranty' }); });
