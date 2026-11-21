@@ -82,7 +82,9 @@
   };
   C.fmtPhone = function (p) { const d = String(p || '').replace(/\D/g, '').replace(/^1(\d{10})$/, '$1'); if (d.length === 10) return '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6); if (d.length === 7) return d.slice(0, 3) + '-' + d.slice(3); return d; };
   C.needsLeads = function (state, filter, now) { const box = state && state.leads && state.leads[filter]; return !box || (now - (box.at || 0)) >= 60000; };
-  C.paymentOptions = ['cash', 'check', 'zelle', 'card', 'square'];
+  C.paymentOptions = ['cash', 'check', 'zelle', 'card', 'square', 'cashapp', 'venmo'];
+  /** Chip label: 'cashapp' → 'Cash App', 'zelle' → 'Zelle'. Pure. */
+  C.payLabel = o => o === 'cashapp' ? 'Cash App' : String(o).charAt(0).toUpperCase() + String(o).slice(1);
   C.lineValid = function (L) { return !!(L && String(L.desc || '').trim()) && !isNaN(Number(L.price)) && String(L.price) !== '' && Number(L.price) >= 0; };
   /** Days for the Today tab picker: Today, Yesterday, then 'Fri 11/13' back to 6 days ago (local time). Pure. */
   C.dayOptions = function (now) {

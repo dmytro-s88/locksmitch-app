@@ -94,7 +94,7 @@
   // ---------- action sheets ----------
   function sheet(html) { const el = $('sheet'); el.innerHTML = html; el.hidden = false; state.sheet = true; el.scrollIntoView({ block: 'nearest' }); }
   function closeSheet() { $('sheet').hidden = true; $('sheet').innerHTML = ''; state.sheet = false; }
-  const chips = (name, opts, on) => '<div class="chips" data-chips="' + name + '">' + opts.map(o => '<button type="button" data-v="' + o + '" class="' + (o === on ? 'on' : '') + '">' + o.charAt(0).toUpperCase() + o.slice(1) + '</button>').join('') + '</div>';
+  const chips = (name, opts, on) => '<div class="chips" data-chips="' + name + '">' + opts.map(o => '<button type="button" data-v="' + o + '" class="' + (o === on ? 'on' : '') + '">' + (C.payLabel(o)) + '</button>').join('') + '</div>';
   const chipVal = name => { const b = document.querySelector('[data-chips="' + name + '"] button.on'); return b ? b.dataset.v : ''; };
 
   /** Hand-off form: who took the job (chips from the bot + any name) and, if known, the job amount */
@@ -197,7 +197,7 @@
       inv.lines.map(L => '<div class="row1" style="padding:4px 0"><span>' + esc(L.desc) + (Number(L.qty) > 1 ? ' × ' + esc(L.qty) : '') + '</span><span>' + C.fmtMoney((Number(L.qty) || 1) * Number(L.price)) + '</span></div>').join('') +
       '<div class="total"><span>Total</span><span>' + C.fmtMoney(inv.total) + '</span></div></div>' +
       '<div class="btnrow">' + (inv.pdfUrl ? '<a href="' + esc(inv.pdfUrl) + '" target="_blank" rel="noopener">&#128196; PDF</a>' : '<button disabled>PDF</button>') + '<a href="' + esc(inv.signUrl) + '" target="_blank" rel="noopener">&#9998; Sign</a><a href="' + esc(inv.printUrl) + '" target="_blank" rel="noopener">&#128424; Print</a></div>' +
-      (inv.type !== 'estimate' && !inv.paid ? '<div class="card"><div class="lab">Mark paid</div><div class="btnrow four"><button data-paid="cash" class="primary">Cash</button><button data-paid="check">Check</button><button data-paid="zelle">Zelle</button><button data-paid="card">Card</button></div><div class="sub">Square card payments are picked up automatically.</div></div>' : '') +
+      (inv.type !== 'estimate' && !inv.paid ? '<div class="card"><div class="lab">Mark paid</div><div class="btnrow"><button data-paid="cash" class="primary">Cash</button><button data-paid="check">Check</button><button data-paid="zelle">Zelle</button><button data-paid="card">Card</button><button data-paid="cashapp">Cash App</button><button data-paid="venmo">Venmo</button></div><div class="sub">Square card payments are picked up automatically.</div></div>' : '') +
       '<p class="sub">Sign and Print links work for 2 hours; reopen the invoice for fresh ones.</p>';
   }
   function readLines() { return Array.from(document.querySelectorAll('#lines .line')).map(r => ({ desc: r.querySelector('[data-f="desc"]').value.trim(), qty: Number(r.querySelector('[data-f="qty"]').value) || 1, price: r.querySelector('[data-f="price"]').value === '' ? '' : Number(r.querySelector('[data-f="price"]').value) })); }
