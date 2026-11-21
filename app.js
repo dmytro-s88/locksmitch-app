@@ -249,14 +249,14 @@
   function renderMoney() {
     moneyDefaults();
     const m = state.money, box = $('moneyBox'), month = state.month, isDay = state.moneyMode === 'day', day = state.moneyDay;
-    const tile = (lab, val, cls) => '<div class="tile"><div class="lab">' + lab + '</div><div class="val ' + (cls || '') + '">' + val + '</div></div>';
+    const tile = (lab, val, cls, sub) => '<div class="tile"><div class="lab">' + lab + '</div><div class="val ' + (cls || '') + '">' + val + '</div>' + (sub ? '<div class="tsub">' + esc(sub) + '</div>' : '') + '</div>';
     let html = '<div class="tabs"><button data-mode="day" class="' + (isDay ? 'on' : '') + '">Day</button><button data-mode="month" class="' + (isDay ? '' : 'on') + '">Month</button></div>';
     html += isDay
       ? '<div class="mhead"><button class="iconbtn" data-d="-1" aria-label="Previous day">&#8249;</button><b>' + C.dayLabel(day) + '</b><button class="iconbtn" data-d="1" aria-label="Next day"' + (day >= C.currentDay() ? ' disabled' : '') + '>&#8250;</button></div>'
       : '<div class="mhead"><button class="iconbtn" data-m="-1" aria-label="Previous month">&#8249;</button><b>' + C.monthLabel(month) + '</b><button class="iconbtn" data-m="1" aria-label="Next month">&#8250;</button></div>';
     if (!m) { html += '<p class="muted">Loading…</p>'; box.innerHTML = html; return; }
     if (isDay) html += '<div class="today"><div class="lab">Earned</div><div class="big">' + C.fmtMoney(m.income) + '</div><div class="muted">' + esc(C.daySummary(m.recent, m.miles)) + '</div></div>';
-    html += '<div class="tiles">' + tile('Income', C.fmtMoney(m.income)) + tile('Expenses', C.fmtMoney(m.expenses)) + tile('Profit', C.fmtMoney(m.profit), m.profit >= 0 ? 'pos' : 'neg') + tile('Miles', C.fmtMiles(m.miles) || '0 mi') + '</div>';
+    html += '<div class="tiles">' + tile('Income', C.fmtMoney(m.income)) + tile('Expenses', C.fmtMoney(m.expenses)) + tile('Profit', C.fmtMoney(m.profit), m.profit >= 0 ? 'pos' : 'neg') + tile('Miles', C.fmtMiles(m.miles) || '0 mi', '', C.mileDeductLine(m)) + '</div>';
     const P = state.payEdit, U = m.unpaid || [];
     if (U.length) html += '<div class="card checks unpaid"><div class="lab">Not paid yet</div>' + U.map(u => '<div class="row1 chk"><span>' + esc(C.unpaidLine(u)) + (u.quoted ? ' <span class="muted">· quoted ' + C.fmtMoney(u.quoted) + '</span>' : '') + '</span><button data-pay="' + u.num + '">Add payment</button></div>' + (P && P.where === 'row' && P.num === u.num ? paySheetHtml() : '')).join('') + '</div>';
     if (m.checks && m.checks.length) html += '<div class="card checks"><div class="lab">Checks not cashed</div>' + m.checks.map(c => '<div class="row1 chk"><span>' + esc(C.checkLine(c)) + '</span><b>' + C.fmtMoney(c.amount) + '</b><button data-cash="' + c.row + '" data-amt="' + c.amount + '">Cashed</button></div>').join('') + (m.checks.length > 1 ? '<div class="total"><span>Total</span><span>' + C.fmtMoney(m.checksTotal) + '</span></div>' : '') + '</div>';

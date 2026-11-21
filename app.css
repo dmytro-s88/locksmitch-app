@@ -103,6 +103,7 @@ pre.notes { white-space: pre-wrap; font: inherit; margin: 0; color: var(--ink); 
 .tile .val { font-size: 22px; font-weight: 600; }
 .tile .val.pos { color: var(--green); }
 .tile .val.neg { color: #E89A9A; }
+.tile .tsub { color: var(--muted); font-size: 12px; margin-top: 2px; }
 .ops { display: flex; flex-direction: column; gap: 6px; }
 .op { display: flex; justify-content: space-between; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 8px 12px; }
 .op .t { min-width: 0; }

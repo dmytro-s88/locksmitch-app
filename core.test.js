@@ -129,3 +129,8 @@ test('jobKeyLines: one line per key when a job has several (bot v288)', () => {
   assert.deepEqual(C.jobKeyLines({ key: 'SUPALAND', unit: 16.03, qty: 1, est: false, keys: [{ name: 'SUPALAND', unit: 16.03, qty: 1 }] }), ['SUPALAND · $16.03']);
   assert.deepEqual(C.jobKeyLines({ key: '', why: 'lockout', keys: [] }), ['No key · lockout']);
   assert.equal(C.savedKeyLine({ name: 'Autel Toyota 8A', unit: 26, qty: 2, est: true, off: 2 }), 'Autel Toyota 8A · ~$26.00 × 2 · from stock'); });
+test('mileDeductLine: approximate IRS write-off under the Miles tile (Dima 2026-11-21)', () => {
+  assert.equal(C.mileDeductLine({ miles: 113, mileDeduct: 85.88, mileRate: 0.76 }), '≈ $85.88 write-off · 76¢/mi');
+  assert.equal(C.mileDeductLine({ miles: 10, mileDeduct: 7.25, mileRate: 0.725 }), '≈ $7.25 write-off · 72.5¢/mi');
+  assert.equal(C.mileDeductLine({ miles: 0, mileDeduct: 0, mileRate: 0.76 }), '');
+  assert.equal(C.mileDeductLine({ miles: 12 }), ''); });
