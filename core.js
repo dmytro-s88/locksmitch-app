@@ -60,6 +60,13 @@
     const keyEst = j.keyEst !== undefined ? j.keyEst : j.est;   // est у работы учитывает и мелочь; keyEst — только сам ключ (бот v274)
     return j.key + ' · ' + (keyEst ? '~' : '') + C.fmtMoney(j.unit) + kit + (j.qty > 1 ? ' × ' + j.qty : '');
   };
+  // Несколько ключей на работу (бот v288, Дима 2026-11-20, #55): по строке на ключ. Pure.
+  C.jobKeyLines = function (j) {
+    const K = (j && j.keys) || [];
+    if (K.length < 2) return [C.jobKeyLine(j)];
+    return K.map(function (k) { return C.jobKeyLine({ key: k.name, unit: k.unit, qty: k.qty, keyEst: !!k.est, kit: k.kit || [] }); });
+  };
+  C.savedKeyLine = function (k) { return k.name + ' · ' + (k.est ? '~' : '') + C.fmtMoney(k.unit) + (k.qty > 1 ? ' × ' + k.qty : '') + (k.off > 0 ? ' · from stock' : ''); };
   C.jobsSummary = function (t) { t = t || {}; return 'Paid ' + C.fmtMoney(t.paid) + ' · Keys ' + (t.est ? '~' : '') + C.fmtMoney(t.keys) + (Number(t.other) > 0 ? ' · Other ' + C.fmtMoney(t.other) : '') + ' · Left ' + C.fmtMoney(t.net); };
   // VIN и PIN лида для карточки (бот v273)
   C.leadCodes = function (L) { L = L || {}; return [['VIN', L.vin], ['PIN', L.pin]].filter(function (x) { return x[1]; }).map(function (x) { return { lab: x[0], val: String(x[1]) }; }); };

@@ -123,3 +123,9 @@ test('thanksSwitch: the button offers the opposite of what the text has now', ()
   assert.deepEqual(C.thanksSwitch('thanksnw', { warranty: false }), { kind: 'thanksw', label: 'With warranty' });
   assert.deepEqual(C.thanksSwitch('thanks', {}), { kind: 'thanksnw', label: 'Without warranty' });   // old bot: no warranty field
   assert.deepEqual(C.thanksSwitch('thanksnw', {}), { kind: 'thanks', label: 'With warranty' }); });
+test('jobKeyLines: one line per key when a job has several (bot v288)', () => {
+  const j = { key: 'Autel Toyota 8A', unit: 26, qty: 2, keyEst: true, kit: [], keys: [{ name: 'Autel Toyota 8A', unit: 26, qty: 2, est: true, kit: [] }, { name: 'Honda smart', unit: 32.62, qty: 1, est: false, kit: [{ name: 'Blade (HON66)', unit: 1 }] }] };
+  assert.deepEqual(C.jobKeyLines(j), ['Autel Toyota 8A · ~$26.00 × 2', 'Honda smart · $32.62 + blade $1.00']);
+  assert.deepEqual(C.jobKeyLines({ key: 'SUPALAND', unit: 16.03, qty: 1, est: false, keys: [{ name: 'SUPALAND', unit: 16.03, qty: 1 }] }), ['SUPALAND · $16.03']);
+  assert.deepEqual(C.jobKeyLines({ key: '', why: 'lockout', keys: [] }), ['No key · lockout']);
+  assert.equal(C.savedKeyLine({ name: 'Autel Toyota 8A', unit: 26, qty: 2, est: true, off: 2 }), 'Autel Toyota 8A · ~$26.00 × 2 · from stock'); });

@@ -260,7 +260,7 @@
     const P = state.payEdit, U = m.unpaid || [];
     if (U.length) html += '<div class="card checks unpaid"><div class="lab">Not paid yet</div>' + U.map(u => '<div class="row1 chk"><span>' + esc(C.unpaidLine(u)) + (u.quoted ? ' <span class="muted">· quoted ' + C.fmtMoney(u.quoted) + '</span>' : '') + '</span><button data-pay="' + u.num + '">Add payment</button></div>' + (P && P.where === 'row' && P.num === u.num ? paySheetHtml() : '')).join('') + '</div>';
     if (m.checks && m.checks.length) html += '<div class="card checks"><div class="lab">Checks not cashed</div>' + m.checks.map(c => '<div class="row1 chk"><span>' + esc(C.checkLine(c)) + '</span><b>' + C.fmtMoney(c.amount) + '</b><button data-cash="' + c.row + '" data-amt="' + c.amount + '">Cashed</button></div>').join('') + (m.checks.length > 1 ? '<div class="total"><span>Total</span><span>' + C.fmtMoney(m.checksTotal) + '</span></div>' : '') + '</div>';
-    if (m.jobs && m.jobs.length) html += '<div class="card jobs"><div class="lab">Jobs · costs</div><div class="sub jsum">' + esc(C.jobsSummary(m.jobsTotals)) + '</div>' + m.jobs.map(j => '<div class="job' + (state.keyEdit && state.keyEdit.num === j.num ? ' open' : '') + '" data-job="' + j.num + '"><div class="row1"><span>#' + j.num + ' · ' + esc(j.title) + '</span><b>' + C.fmtMoney(j.net) + '</b></div><div class="sub">🔑 ' + esc(C.jobKeyLine(j)) + (j.auto && j.key ? ' <span class="auto">auto</span>' : '') + ' · paid ' + C.fmtMoney(j.paid) + '</div>' + (C.jobExtrasLine(j) ? '<div class="sub">🧾 ' + esc(C.jobExtrasLine(j)) + '</div>' : '') + (state.keyEdit && state.keyEdit.num === j.num ? keySheetHtml() : '') + '</div>').join('') + '<div class="sub" style="margin-top:6px">Tap a job to fix the key. Profit above already counts keys and job costs (PIN codes) as expenses on the day you paid.</div></div>';
+    if (m.jobs && m.jobs.length) html += '<div class="card jobs"><div class="lab">Jobs · costs</div><div class="sub jsum">' + esc(C.jobsSummary(m.jobsTotals)) + '</div>' + m.jobs.map(j => '<div class="job' + (state.keyEdit && state.keyEdit.num === j.num ? ' open' : '') + '" data-job="' + j.num + '"><div class="row1"><span>#' + j.num + ' · ' + esc(j.title) + '</span><b>' + C.fmtMoney(j.net) + '</b></div>' + C.jobKeyLines(j).map((ln, i, a) => '<div class="sub">🔑 ' + esc(ln) + (i === 0 && j.auto && j.key ? ' <span class="auto">auto</span>' : '') + (i === a.length - 1 ? ' · paid ' + C.fmtMoney(j.paid) : '') + '</div>').join('') + (C.jobExtrasLine(j) ? '<div class="sub">🧾 ' + esc(C.jobExtrasLine(j)) + '</div>' : '') + (state.keyEdit && state.keyEdit.num === j.num ? keySheetHtml() : '') + '</div>').join('') + '<div class="sub" style="margin-top:6px">Tap a job to fix the key. Profit above already counts keys and job costs (PIN codes) as expenses on the day you paid.</div></div>';
     const CL = m.colleagues || [], CE = state.collEdit, owedSum = C.collOwedTotal(CL);
     if (CL.length) html += '<div class="card coll"><div class="lab">With colleagues</div>' + CL.map(c => '<div class="cjob' + (CE && CE.num === c.num ? ' open' : '') + '" data-coll="' + c.num + '"><div class="row1"><span>#' + c.num + (c.name ? ' ' + esc(c.name) : '') + (c.title ? ' · ' + esc(c.title) : '') + '</span>' + (c.state === 'owed' ? '<b>' + C.fmtMoney(c.expect) + '</b>' : '') + '</div><div class="sub">&#129309; ' + esc(C.collLine(c)) + '</div>' + (CE && CE.num === c.num ? collSheetHtml(c) : '') + '</div>').join('') +
       (owedSum ? '<div class="total"><span>Owed to you (estimate)</span><span>' + C.fmtMoney(owedSum) + '</span></div>' : '') + '<div class="sub" style="margin-top:6px">Tap a job: he did it, he paid you, or take it back.</div></div>';
@@ -345,20 +345,23 @@
   }
   function keySheetHtml() {
     const k = state.keyEdit;
-    return '<div class="sheet ksheet"><input id="kq" placeholder="Search stock: Ford, N5F, flip…" value="' + esc(k.q) + '" autocomplete="off"><div class="klist" id="klist">' + keyListHtml() + '</div>' +
+    const saved = k.keys || [];
+    const savedHtml = saved.length ? '<div class="kkeys"><div class="sub">Keys on this job:</div>' + saved.map(x => '<div class="kkey"><span>' + esc(C.savedKeyLine(x)) + '</span><button class="secondary' + (k.rm === x.row ? ' danger' : '') + '" data-krm="' + x.row + '">' + (k.rm === x.row ? 'Remove' : '✕') + '</button></div>').join('') + '<div class="sub">Add another key below.</div></div>' : '';
+    return '<div class="sheet ksheet">' + savedHtml + '<input id="kq" placeholder="Search stock: Ford, N5F, flip…" value="' + esc(k.q) + '" autocomplete="off"><div class="klist" id="klist">' + keyListHtml() + '</div>' +
       '<div class="row"><label class="fld">Cost per key $<input id="kunit" type="number" inputmode="decimal" step="0.01" value="' + (k.unit === '' ? '' : esc(String(k.unit))) + '"></label><label class="fld">Keys<input id="kqty" type="number" inputmode="numeric" min="1" max="10" value="' + k.qty + '"></label></div>' +
       '<label class="chk"><input id="ktake" type="checkbox"' + (k.take ? ' checked' : '') + '> Take from stock (−' + k.qty + ')</label>' +
-      '<div class="row"><button class="secondary" data-knone="1">No key</button><button class="secondary" data-kclose="1">Cancel</button><button class="primary" data-ksave="1">Save</button></div></div>';
+      '<div class="row"><button class="secondary" data-knone="1">No key</button><button class="secondary" data-kclose="1">Cancel</button><button class="primary" data-ksave="1">' + (saved.length ? '+ Add key' : 'Save') + '</button></div></div>';
   }
   async function openKey(num) {
     if (state.keyEdit && state.keyEdit.num === num) { state.keyEdit = null; render(); return; }
     const j = (state.money.jobs || []).filter(x => x.num === num)[0]; if (!j) return;
-    const guessed = j.key && !/\(average\)$/.test(j.key);
-    state.keyEdit = { num: num, q: guessed ? '' : C.makeWord(String(j.title).split(' · ')[0]), sel: guessed ? j.key : '', unit: j.key ? j.unit : '', qty: j.qty || 1, take: true, items: null };
+    const hasSaved = !j.auto && (j.keys || []).length > 0, guessed = !hasSaved && j.key && !/\(average\)$/.test(j.key);
+    state.keyEdit = { num: num, q: guessed ? '' : C.makeWord(String(j.title).split(' · ')[0]), sel: guessed ? j.key : '', unit: hasSaved ? '' : j.key ? j.unit : '', qty: hasSaved ? 1 : j.qty || 1, take: true, items: null,
+      keys: hasSaved ? j.keys.map(x => ({ row: x.row, name: x.name, unit: x.unit, qty: x.qty, est: x.est, off: x.off })) : [], rm: 0 };
     render();
     const r = await call('jobKeyOptions', { num: num });
     if (!state.keyEdit || state.keyEdit.num !== num) return;
-    if (r.ok) { state.keyEdit.items = r.items; if (state.keyEdit.sel && !state.keyEdit.q) state.keyEdit.q = C.makeWord(r.vehicle || String(j.title).split(' · ')[0]); if (r.saved && r.saved.off > 0) state.keyEdit.take = true; render(); }
+    if (r.ok) { state.keyEdit.items = r.items; if (Array.isArray(r.keys)) state.keyEdit.keys = r.keys; if (state.keyEdit.sel && !state.keyEdit.q) state.keyEdit.q = C.makeWord(r.vehicle || String(j.title).split(' · ')[0]); if (r.saved && r.saved.off > 0) state.keyEdit.take = true; render(); }
     else { state.keyEdit = null; render(); if (!C.isUnauthorized(r)) toast(r.error || 'Could not load stock', true); }
   }
   async function saveKey(btn, none) {
@@ -370,8 +373,16 @@
       const unit = Number(k.unit); if (k.unit === '' || !(unit >= 0)) { toast('Enter the key cost', true); return; }
       Object.assign(body, { name: k.sel, unit: unit, qty: Math.max(1, Number(k.qty) || 1), take: !!k.take && (k.items || []).some(it => it.name === k.sel) });
     }
-    const r = await withBtn(btn, () => call('jobKeySet', body));
+    const add = !none && (k.keys || []).length > 0;   // у работы уже есть записанные ключи: ещё один (бот v288)
+    const r = await withBtn(btn, () => call(add ? 'jobKeyAdd' : 'jobKeySet', body));
     if (r.ok) { state.keyEdit = null; toast(r.text || 'Saved'); loadMoney(); } else if (!C.isUnauthorized(r)) toast(r.error || 'Not saved', true);
+  }
+  async function removeKey(btn, row) {
+    const k = state.keyEdit; if (!k) return;
+    if (k.rm !== row) { k.rm = row; render(); return; }   // первый тап: «Remove», второй убирает
+    const x = (k.keys || []).filter(e => e.row === row)[0]; if (!x) return;
+    const r = await withBtn(btn, () => call('jobKeyRemove', { num: k.num, row: row, name: x.name }));
+    if (r.ok) { state.keyEdit = null; toast(r.text || 'Removed'); loadMoney(); } else { k.rm = 0; if (!C.isUnauthorized(r)) toast(r.error || 'Not removed', true); render(); }
   }
   $('moneyBox').addEventListener('input', e => {
     if (e.target.id === 'payAmt' && state.payEdit) { state.payEdit.amt = e.target.value; return; }
@@ -417,6 +428,7 @@
     if (t.dataset.kclose) { state.keyEdit = null; render(); return; }
     if (t.dataset.knone) return saveKey(t, true);
     if (t.dataset.ksave) return saveKey(t, false);
+    if (t.dataset.krm) return removeKey(t, Number(t.dataset.krm));
     if (t.dataset.cash) {
       const r = await withBtn(t, () => call('checkCashed', { row: Number(t.dataset.cash), amount: Number(t.dataset.amt) }));
       if (r.ok) { toast(r.text || 'Check cashed'); loadMoney(); } else if (!C.isUnauthorized(r)) toast(r.error || 'Not saved', true);
