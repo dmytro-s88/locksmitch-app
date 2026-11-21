@@ -134,3 +134,5 @@ test('mileDeductLine: approximate IRS write-off under the Miles tile (Dima 2026-
   assert.equal(C.mileDeductLine({ miles: 10, mileDeduct: 7.25, mileRate: 0.725 }), '≈ $7.25 write-off · 72.5¢/mi');
   assert.equal(C.mileDeductLine({ miles: 0, mileDeduct: 0, mileRate: 0.76 }), '');
   assert.equal(C.mileDeductLine({ miles: 12 }), ''); });
+test('weekStart: Monday of the week (Sunday belongs to the week before)', () => { assert.equal(C.weekStart('2026-11-21'), '2026-11-16'); assert.equal(C.weekStart('2026-11-16'), '2026-11-16'); assert.equal(C.weekStart('2026-11-22'), '2026-11-16'); assert.equal(C.weekStart('2026-11-23'), '2026-11-23'); assert.equal(C.weekStart('2027-01-01'), '2026-12-28'); assert.equal(C.weekStart('bad'), ''); });
+test('weekLabel: This week, Last week, then date range', () => { const now = new Date(2026, 10, 21, 10); assert.equal(C.weekLabel('2026-11-16', now), 'This week'); assert.equal(C.weekLabel('2026-11-09', now), 'Last week'); assert.equal(C.weekLabel('2026-11-02', now), 'Nov 2 – 8'); assert.equal(C.weekLabel('2026-10-26', now), 'Oct 26 – Nov 1'); assert.equal(C.weekLabel('2025-12-29', now), 'Dec 29, 2025 – Jan 4, 2026'); });

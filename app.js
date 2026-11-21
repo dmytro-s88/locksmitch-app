@@ -245,17 +245,19 @@
     if (!state.month) state.month = C.currentMonth();
     if (!state.moneyMode) state.moneyMode = 'day';   // Дима 2026-11-16: сначала видно, сколько заработано сегодня
     if (!state.moneyDay) state.moneyDay = C.currentDay();
+    if (!state.moneyWeek) state.moneyWeek = C.weekStart(C.currentDay());
   }
   function renderMoney() {
     moneyDefaults();
-    const m = state.money, box = $('moneyBox'), month = state.month, isDay = state.moneyMode === 'day', day = state.moneyDay;
+    const m = state.money, box = $('moneyBox'), month = state.month, isDay = state.moneyMode === 'day', isWeek = state.moneyMode === 'week', day = state.moneyDay, wk = state.moneyWeek;
     const tile = (lab, val, cls, sub) => '<div class="tile"><div class="lab">' + lab + '</div><div class="val ' + (cls || '') + '">' + val + '</div>' + (sub ? '<div class="tsub">' + esc(sub) + '</div>' : '') + '</div>';
-    let html = '<div class="tabs"><button data-mode="day" class="' + (isDay ? 'on' : '') + '">Day</button><button data-mode="month" class="' + (isDay ? '' : 'on') + '">Month</button></div>';
-    html += isDay
+    let html = '<div class="tabs">' + [['day', 'Day'], ['week', 'Week'], ['month', 'Month']].map(t => '<button data-mode="' + t[0] + '" class="' + (state.moneyMode === t[0] ? 'on' : '') + '">' + t[1] + '</button>').join('') + '</div>';
+    html += isWeek ? '<div class="mhead"><button class="iconbtn" data-w="-1" aria-label="Previous week">&#8249;</button><b>' + C.weekLabel(wk) + '</b><button class="iconbtn" data-w="1" aria-label="Next week"' + (wk >= C.weekStart(C.currentDay()) ? ' disabled' : '') + '>&#8250;</button></div>'
+      : isDay
       ? '<div class="mhead"><button class="iconbtn" data-d="-1" aria-label="Previous day">&#8249;</button><b>' + C.dayLabel(day) + '</b><button class="iconbtn" data-d="1" aria-label="Next day"' + (day >= C.currentDay() ? ' disabled' : '') + '>&#8250;</button></div>'
       : '<div class="mhead"><button class="iconbtn" data-m="-1" aria-label="Previous month">&#8249;</button><b>' + C.monthLabel(month) + '</b><button class="iconbtn" data-m="1" aria-label="Next month">&#8250;</button></div>';
     if (!m) { html += '<p class="muted">Loading…</p>'; box.innerHTML = html; return; }
-    if (isDay) html += '<div class="today"><div class="lab">Earned</div><div class="big">' + C.fmtMoney(m.income) + '</div><div class="muted">' + esc(C.daySummary(m.recent, m.miles)) + '</div></div>';
+    if (isDay || isWeek) html += '<div class="today"><div class="lab">' + (isWeek ? 'Earned this week' : 'Earned') + '</div><div class="big">' + C.fmtMoney(m.income) + '</div><div class="muted">' + esc(C.daySummary(m.recent, m.miles)) + '</div></div>';
     html += '<div class="tiles">' + tile('Income', C.fmtMoney(m.income)) + tile('Expenses', C.fmtMoney(m.expenses)) + tile('Profit', C.fmtMoney(m.profit), m.profit >= 0 ? 'pos' : 'neg') + tile('Miles', C.fmtMiles(m.miles) || '0 mi', '', C.mileDeductLine(m)) + '</div>';
     const P = state.payEdit, U = m.unpaid || [];
     if (U.length) html += '<div class="card checks unpaid"><div class="lab">Not paid yet</div>' + U.map(u => '<div class="row1 chk"><span>' + esc(C.unpaidLine(u)) + (u.quoted ? ' <span class="muted">· quoted ' + C.fmtMoney(u.quoted) + '</span>' : '') + '</span><button data-pay="' + u.num + '">Add payment</button></div>' + (P && P.where === 'row' && P.num === u.num ? paySheetHtml() : '')).join('') + '</div>';
@@ -265,8 +267,8 @@
     if (CL.length) html += '<div class="card coll"><div class="lab">With colleagues</div>' + CL.map(c => '<div class="cjob' + (CE && CE.num === c.num ? ' open' : '') + '" data-coll="' + c.num + '"><div class="row1"><span>#' + c.num + (c.name ? ' ' + esc(c.name) : '') + (c.title ? ' · ' + esc(c.title) : '') + '</span>' + (c.state === 'owed' ? '<b>' + C.fmtMoney(c.expect) + '</b>' : '') + '</div><div class="sub">&#129309; ' + esc(C.collLine(c)) + '</div>' + (CE && CE.num === c.num ? collSheetHtml(c) : '') + '</div>').join('') +
       (owedSum ? '<div class="total"><span>Owed to you (estimate)</span><span>' + C.fmtMoney(owedSum) + '</span></div>' : '') + '<div class="sub" style="margin-top:6px">Tap a job: he did it, he paid you, or take it back.</div></div>';
     html += '<div class="btnrow two"><button class="primary" id="addInc">+ Income</button><button class="primary" id="addExp">+ Expense</button></div><div id="incSheet">' + (P && P.where === 'pick' ? paySheetHtml() : state.payPick ? payPickHtml() : '') + '</div><div id="expSheet"></div>';
-    html += '<div class="lab" style="margin:8px 2px 6px;color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.05em">' + (isDay ? 'This day' : 'Latest') + '</div>';
-    html += m.recent.length ? '<div class="ops">' + m.recent.map(o => '<div class="op"><div class="t"><div>' + esc(o.title) + '</div><div>' + esc([o.date, o.note].filter(Boolean).join(' · ').slice(0, 80)) + (o.check ? ' <span class="ck ' + (o.check === 'cashed' ? 'cashed' : 'uncashed') + '">' + (o.check === 'cashed' ? 'check cashed' : 'check not cashed') + '</span>' : '') + '</div></div><div class="a ' + (o.kind === 'income' ? 'in' : o.kind === 'miles' ? 'mi' : '') + '">' + (o.kind === 'miles' ? C.fmtMiles(o.amount) : (o.kind === 'income' ? '+' : '-') + C.fmtMoney(o.amount)) + '</div></div>').join('') + '</div>' : '<p class="muted">' + (isDay ? 'Nothing recorded this day.' : 'No entries this month.') + '</p>';
+    html += '<div class="lab" style="margin:8px 2px 6px;color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:.05em">' + (isDay ? 'This day' : isWeek ? 'This week' : 'Latest') + '</div>';
+    html += m.recent.length ? '<div class="ops">' + m.recent.map(o => '<div class="op"><div class="t"><div>' + esc(o.title) + '</div><div>' + esc([o.date, o.note].filter(Boolean).join(' · ').slice(0, 80)) + (o.check ? ' <span class="ck ' + (o.check === 'cashed' ? 'cashed' : 'uncashed') + '">' + (o.check === 'cashed' ? 'check cashed' : 'check not cashed') + '</span>' : '') + '</div></div><div class="a ' + (o.kind === 'income' ? 'in' : o.kind === 'miles' ? 'mi' : '') + '">' + (o.kind === 'miles' ? C.fmtMiles(o.amount) : (o.kind === 'income' ? '+' : '-') + C.fmtMoney(o.amount)) + '</div></div>').join('') + '</div>' : '<p class="muted">' + (isDay ? 'Nothing recorded this day.' : isWeek ? 'Nothing recorded this week.' : 'No entries this month.') + '</p>';
     box.innerHTML = html;
   }
   // ---------- доход по лиду (Дима 2026-11-20: «как добавить доход? нет кнопки, надо чтоб по каждому лиду было легко») ----------
@@ -403,7 +405,7 @@
   async function loadMoney(month) {
     if (month) state.month = month;
     moneyDefaults();
-    const ask = state.moneyMode === 'day' ? { day: state.moneyDay } : { month: state.month }, key = JSON.stringify(ask);
+    const ask = state.moneyMode === 'day' ? { day: state.moneyDay } : state.moneyMode === 'week' ? { week: state.moneyWeek } : { month: state.month }, key = JSON.stringify(ask);
     state.moneyKey = key; state.money = null; state.keyEdit = null; state.payEdit = null; state.payPick = false; state.collEdit = null; render();
     const r = await call('money', ask);
     if (state.moneyKey !== key) return;   // пока грузилось, переключили день/месяц
@@ -422,7 +424,8 @@
     const t = e.target.closest('button'); if (!t) return;
     if (t.dataset.m) return loadMoney(C.shiftMonth(state.month, Number(t.dataset.m)));
     if (t.dataset.d) { const nd = C.shiftDay(state.moneyDay, Number(t.dataset.d)); if (nd > C.currentDay()) return; state.moneyDay = nd; return loadMoney(); }
-    if (t.dataset.mode) { if (t.dataset.mode === state.moneyMode) { if (t.dataset.mode === 'day' && state.moneyDay !== C.currentDay()) { state.moneyDay = C.currentDay(); return loadMoney(); } return; } state.moneyMode = t.dataset.mode; if (state.moneyMode === 'day') state.moneyDay = C.currentDay(); return loadMoney(); }
+    if (t.dataset.w) { const nw = C.shiftDay(state.moneyWeek, 7 * Number(t.dataset.w)); if (nw > C.weekStart(C.currentDay())) return; state.moneyWeek = nw; return loadMoney(); }
+    if (t.dataset.mode) { const curW = C.weekStart(C.currentDay()); if (t.dataset.mode === state.moneyMode) { if (t.dataset.mode === 'day' && state.moneyDay !== C.currentDay()) { state.moneyDay = C.currentDay(); return loadMoney(); } if (t.dataset.mode === 'week' && state.moneyWeek !== curW) { state.moneyWeek = curW; return loadMoney(); } return; } state.moneyMode = t.dataset.mode; if (state.moneyMode === 'day') state.moneyDay = C.currentDay(); if (state.moneyMode === 'week') state.moneyWeek = curW; return loadMoney(); }
     if (t.dataset.kitem !== undefined && state.keyEdit) { const it = (state.keyEdit.shown || [])[Number(t.dataset.kitem)]; if (it) { state.keyEdit.sel = it.name; state.keyEdit.unit = it.unit; render(); } return; }
     if (t.dataset.kcustom && state.keyEdit) { state.keyEdit.sel = state.keyEdit.q.trim(); state.keyEdit.take = false; render(); return; }
     if (t.dataset.kclose) { state.keyEdit = null; render(); return; }

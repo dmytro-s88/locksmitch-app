@@ -40,6 +40,15 @@
   const ymdOf = function (d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
   C.currentDay = function (d) { return ymdOf(d || new Date()); };
   C.shiftDay = function (ymd, delta) { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || '')); return m ? ymdOf(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + delta)) : ''; };
+  // Неделя Mon–Sun (вкладка Week, Дима 2026-11-21). Pure.
+  C.weekStart = function (ymd) { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || '')); if (!m) return ''; const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])); return C.shiftDay(ymd, -((d.getDay() + 6) % 7)); };
+  C.weekLabel = function (mon, now) {
+    const cur = C.weekStart(C.currentDay(now || new Date())); if (mon === cur) return 'This week'; if (mon === C.shiftDay(cur, -7)) return 'Last week';
+    const end = C.shiftDay(mon, 6), part = function (ymd, withMonth) { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd); return (withMonth ? MONTHS[Number(m[2]) - 1].slice(0, 3) + ' ' : '') + Number(m[3]); };
+    if (!end) return '';
+    const yr = mon.slice(0, 4) !== end.slice(0, 4) || mon.slice(0, 4) !== cur.slice(0, 4);
+    return part(mon, true) + (yr ? ', ' + mon.slice(0, 4) : '') + ' \u2013 ' + part(end, mon.slice(5, 7) !== end.slice(5, 7) || yr) + (yr ? ', ' + end.slice(0, 4) : '');
+  };
   C.dayLabel = function (ymd, now) {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || '')); if (!m) return '';
     const today = C.currentDay(now || new Date());
