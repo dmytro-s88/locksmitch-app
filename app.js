@@ -93,7 +93,7 @@
 
   // ---------- action sheets ----------
   function sheet(html) { const el = $('sheet'); el.innerHTML = html; el.hidden = false; state.sheet = true; el.scrollIntoView({ block: 'nearest' }); }
-  function closeSheet() { $('sheet').hidden = true; $('sheet').innerHTML = ''; state.sheet = false; }
+  function closeSheet() { $('sheet').hidden = true; $('sheet').innerHTML = ''; state.sheet = false; if (state.keyEdit && state.keyEdit.where === 'lead') state.keyEdit = null; }
   const chips = (name, opts, on) => '<div class="chips" data-chips="' + name + '">' + opts.map(o => '<button type="button" data-v="' + o + '" class="' + (o === on ? 'on' : '') + '">' + (C.payLabel(o)) + '</button>').join('') + '</div>';
   const chipVal = name => { const b = document.querySelector('[data-chips="' + name + '"] button.on'); return b ? b.dataset.v : ''; };
 
@@ -105,13 +105,13 @@
   async function handoffSheet() { await ensureMeta(); const L = state.lead.lead; sheet('<h3>' + (L.colleague ? 'Colleague job: who and how much' : 'Hand off to a colleague') + '</h3>' + handForm('', '', '') + '<div class="row">' + (L.colleague && L.statusKey !== 'done' ? '<button class="secondary" id="goBack">Back to me</button>' : '') + '<button class="secondary" data-close="1">Cancel</button><button class="primary" id="goHand">' + (L.colleague ? 'Save' : 'Hand off') + '</button></div>'); }
 
   /** Optimistic lead action: patch now, call the bot, reload the card on success, roll back on error. */
-  async function leadAction(action, params, patch, okMsg, btn) {
+  async function leadAction(action, params, patch, okMsg, btn, after) {
     const num = state.lead.lead.num;
     if (btn) { btn.classList.add('loading'); btn.disabled = true; }
     dispatch({ type: 'leadPatch', num: num, patch: patch || {} });
     closeSheet();
     const r = await call(action, Object.assign({ num: num }, params));
-    if (r.ok) { dispatch({ type: 'leadSettled', num: num }); toast(okMsg || (r.text ? r.text.split('\n')[0] : 'Saved')); ['open', 'today', 'done'].forEach(f => store.del('lm_leads_' + f)); state.leads = {}; openLead(num); }
+    if (r.ok) { dispatch({ type: 'leadSettled', num: num }); toast(okMsg || (r.text ? r.text.split('\n')[0] : 'Saved')); ['open', 'today', 'done'].forEach(f => store.del('lm_leads_' + f)); state.leads = {}; openLead(num); if (after) after(r); }
     else { dispatch({ type: 'leadRollback', num: num }); if (!C.isUnauthorized(r)) toast(r.error || 'Not saved', true); }
   }
 
@@ -142,14 +142,16 @@
   }
 
   $('leadActions').addEventListener('click', e => { const b = e.target.closest('button[data-act]'); if (!b || b.disabled) return; const act = b.dataset.act; if (act === 'confirm' || act === 'thanks') withBtn(b, () => smsPreview(act, 0)); else if (act === 'handoff') withBtn(b, handoffSheet); else if (act === 'invoice') withBtn(b, openInvoiceDraft); else openActionSheet(act); });
+  $('sheet').addEventListener('input', e => keyInput(e, $('sheet')));
   $('sheet').addEventListener('click', e => {
     const t = e.target.closest('button'); if (!t) return;
     if (t.dataset.close) return closeSheet();
     if (t.closest('[data-chips]')) { t.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === t)); return; }
+    if (keyClick(t)) return;
     const L = state.lead.lead;
     const B = t;
     if (t.id === 'goDone') { const amt = Number($('amt').value); if (!(amt > 0)) { toast('Enter the amount', true); return; } const pay = chipVal('pay'); const coll = !!L.colleague;
-      return leadAction('leadDone', { amount: amt, payment: pay, colleague: coll ? 'colleague' : '' }, { status: 'Done', statusKey: 'done', usd: coll ? L.usd : amt }, 'Recorded ' + C.fmtMoney(amt), B); }
+      return leadAction('leadDone', { amount: amt, payment: pay, colleague: coll ? 'colleague' : '' }, { status: 'Done', statusKey: 'done', usd: coll ? L.usd : amt }, 'Recorded ' + C.fmtMoney(amt), B, r => { if (r.jobKey) openKeyAsk(L.num, r.jobKey); }); }
     if (t.id === 'goHand') { const who = C.handoffWho(chipVal('who'), $('sheet').querySelector('[data-f="who"]').value), amt = Number($('sheet').querySelector('[data-f="amt"]').value) || 0;
       return leadAction('leadHandoff', { who: who, amount: amt }, amt > 0 ? { status: 'Done', statusKey: 'done', colleague: true } : { colleague: true }, 'Handed off' + (who ? ' to ' + who : ''), B); }
     if (t.id === 'goBack') return leadAction('leadTakeBack', {}, { colleague: false }, 'Lead is back with you', B);
@@ -354,6 +356,47 @@
       '<label class="chk"><input id="ktake" type="checkbox"' + (k.take ? ' checked' : '') + '> Take from stock (−' + k.qty + ')</label>' +
       '<div class="row"><button class="secondary" data-knone="1">No key</button><button class="secondary" data-kclose="1">Cancel</button><button class="primary" data-ksave="1">' + (saved.length ? '+ Add key' : 'Save') + '</button></div></div>';
   }
+  // Выбор ключа живёт в Money (Jobs) и в карточке лида после Done (where: 'lead', Дима 2026-11-23: «когда Done, сразу списать со стока»)
+  function keyLeadHtml() { const k = state.keyEdit; return '<h3>&#128273; #' + k.num + (k.vehicle ? ' ' + esc(k.vehicle) : '') + ': which key did you use?</h3><div class="sub">Pick it and keep “Take from stock” checked so stock stays right. No key = lockout or the customer’s key.</div>' + keySheetHtml(); }
+  function keyRefresh() {
+    const k = state.keyEdit;
+    if (k && k.where === 'lead') { const el = $('sheet'); if (!el.hidden && state.sheet) el.innerHTML = keyLeadHtml(); return; }
+    render();
+  }
+  function keyDone(msg) {
+    const lead = state.keyEdit && state.keyEdit.where === 'lead';
+    state.keyEdit = null; toast(msg);
+    if (lead) closeSheet(); else loadMoney();
+  }
+  /** Кнопки выбора ключа (общие для Money и карточки лида) → true, если нажата одна из них */
+  function keyClick(t) {
+    if (!state.keyEdit) return false;
+    if (t.dataset.kitem !== undefined) { const it = (state.keyEdit.shown || [])[Number(t.dataset.kitem)]; if (it) { state.keyEdit.sel = it.name; state.keyEdit.unit = it.unit; keyRefresh(); } return true; }
+    if (t.dataset.kcustom) { state.keyEdit.sel = state.keyEdit.q.trim(); state.keyEdit.take = false; keyRefresh(); return true; }
+    if (t.dataset.kclose) { const lead = state.keyEdit.where === 'lead'; state.keyEdit = null; if (lead) closeSheet(); else render(); return true; }
+    if (t.dataset.knone) { saveKey(t, true); return true; }
+    if (t.dataset.ksave) { saveKey(t, false); return true; }
+    if (t.dataset.krm) { removeKey(t, Number(t.dataset.krm)); return true; }
+    return false;
+  }
+  function keyInput(e, root) {
+    const k = state.keyEdit; if (!k) return;
+    if (e.target.id === 'kq') { k.q = e.target.value; const l = root.querySelector('#klist'); if (l) l.innerHTML = keyListHtml(); }
+    else if (e.target.id === 'kunit') k.unit = e.target.value;
+    else if (e.target.id === 'kqty') { k.qty = Math.max(1, Math.min(10, Number(e.target.value) || 1)); }
+    else if (e.target.id === 'ktake') k.take = e.target.checked;
+  }
+  /** Карточка лида: окно выбора ключа со списанием из стока. ask — jobKey из ответа leadDone, null — по ссылке «Other key» из Telegram */
+  async function openKeyAsk(num, ask) {
+    state.keyEdit = C.keyAskEdit(num, ask);
+    sheet(keyLeadHtml());
+    const r = await call('jobKeyOptions', { num: num });
+    const k = state.keyEdit; if (!k || k.num !== num || k.where !== 'lead') return;
+    if (!r.ok) { state.keyEdit = null; closeSheet(); if (!C.isUnauthorized(r)) toast(r.error || 'Could not load stock', true); return; }
+    k.items = r.items; if (Array.isArray(r.keys)) k.keys = r.keys; if (!k.vehicle) k.vehicle = r.vehicle || '';
+    if (!k.q) k.q = C.makeWord(r.vehicle || k.vehicle);   // как в Money: список сразу по марке, угаданный ключ остаётся выбранным
+    keyRefresh();
+  }
   async function openKey(num) {
     if (state.keyEdit && state.keyEdit.num === num) { state.keyEdit = null; render(); return; }
     const j = (state.money.jobs || []).filter(x => x.num === num)[0]; if (!j) return;
@@ -377,25 +420,21 @@
     }
     const add = !none && (k.keys || []).length > 0;   // у работы уже есть записанные ключи: ещё один (бот v288)
     const r = await withBtn(btn, () => call(add ? 'jobKeyAdd' : 'jobKeySet', body));
-    if (r.ok) { state.keyEdit = null; toast(r.text || 'Saved'); loadMoney(); } else if (!C.isUnauthorized(r)) toast(r.error || 'Not saved', true);
+    if (r.ok) { keyDone(r.text || 'Saved'); } else if (!C.isUnauthorized(r)) toast(r.error || 'Not saved', true);
   }
   async function removeKey(btn, row) {
     const k = state.keyEdit; if (!k) return;
-    if (k.rm !== row) { k.rm = row; render(); return; }   // первый тап: «Remove», второй убирает
+    if (k.rm !== row) { k.rm = row; keyRefresh(); return; }   // первый тап: «Remove», второй убирает
     const x = (k.keys || []).filter(e => e.row === row)[0]; if (!x) return;
     const r = await withBtn(btn, () => call('jobKeyRemove', { num: k.num, row: row, name: x.name }));
-    if (r.ok) { state.keyEdit = null; toast(r.text || 'Removed'); loadMoney(); } else { k.rm = 0; if (!C.isUnauthorized(r)) toast(r.error || 'Not removed', true); render(); }
+    if (r.ok) keyDone(r.text || 'Removed'); else { k.rm = 0; if (!C.isUnauthorized(r)) toast(r.error || 'Not removed', true); keyRefresh(); }
   }
   $('moneyBox').addEventListener('input', e => {
     if (e.target.id === 'payAmt' && state.payEdit) { state.payEdit.amt = e.target.value; return; }
     if (state.collEdit && e.target.dataset.cf) { state.collEdit[e.target.dataset.cf] = e.target.value; return; }
     if (state.payEdit && e.target.dataset.f === 'who') { state.payEdit.hwho = e.target.value; return; }
     if (state.payEdit && e.target.dataset.f === 'amt') { state.payEdit.hamt = e.target.value; return; }
-    const k = state.keyEdit; if (!k) return;
-    if (e.target.id === 'kq') { k.q = e.target.value; $('klist').innerHTML = keyListHtml(); }
-    else if (e.target.id === 'kunit') k.unit = e.target.value;
-    else if (e.target.id === 'kqty') { k.qty = Math.max(1, Math.min(10, Number(e.target.value) || 1)); }
-    else if (e.target.id === 'ktake') k.take = e.target.checked;
+    keyInput(e, $('moneyBox'));
   });
   $('moneyBox').addEventListener('click', e => {
     if (e.target.closest('.ksheet, .csheet')) return;
@@ -426,12 +465,7 @@
     if (t.dataset.d) { const nd = C.shiftDay(state.moneyDay, Number(t.dataset.d)); if (nd > C.currentDay()) return; state.moneyDay = nd; return loadMoney(); }
     if (t.dataset.w) { const nw = C.shiftDay(state.moneyWeek, 7 * Number(t.dataset.w)); if (nw > C.weekStart(C.currentDay())) return; state.moneyWeek = nw; return loadMoney(); }
     if (t.dataset.mode) { const curW = C.weekStart(C.currentDay()); if (t.dataset.mode === state.moneyMode) { if (t.dataset.mode === 'day' && state.moneyDay !== C.currentDay()) { state.moneyDay = C.currentDay(); return loadMoney(); } if (t.dataset.mode === 'week' && state.moneyWeek !== curW) { state.moneyWeek = curW; return loadMoney(); } return; } state.moneyMode = t.dataset.mode; if (state.moneyMode === 'day') state.moneyDay = C.currentDay(); if (state.moneyMode === 'week') state.moneyWeek = curW; return loadMoney(); }
-    if (t.dataset.kitem !== undefined && state.keyEdit) { const it = (state.keyEdit.shown || [])[Number(t.dataset.kitem)]; if (it) { state.keyEdit.sel = it.name; state.keyEdit.unit = it.unit; render(); } return; }
-    if (t.dataset.kcustom && state.keyEdit) { state.keyEdit.sel = state.keyEdit.q.trim(); state.keyEdit.take = false; render(); return; }
-    if (t.dataset.kclose) { state.keyEdit = null; render(); return; }
-    if (t.dataset.knone) return saveKey(t, true);
-    if (t.dataset.ksave) return saveKey(t, false);
-    if (t.dataset.krm) return removeKey(t, Number(t.dataset.krm));
+    if (keyClick(t)) return;
     if (t.dataset.cash) {
       const r = await withBtn(t, () => call('checkCashed', { row: Number(t.dataset.cash), amount: Number(t.dataset.amt) }));
       if (r.ok) { toast(r.text || 'Check cashed'); loadMoney(); } else if (!C.isUnauthorized(r)) toast(r.error || 'Not saved', true);
@@ -499,4 +533,6 @@
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   render();
   if (state.key) loadLeads('open', false);
+  const linkNum = C.keyLinkNum(location.search);   // «Other key» из Telegram: открыть лид и выбор ключа
+  if (linkNum) { try { history.replaceState(null, '', location.pathname); } catch (e) {} if (state.key) openLead(linkNum).then(() => { if (state.view === 'lead' && state.lead && state.lead.lead.num === linkNum) openKeyAsk(linkNum, null); }); }
 })();

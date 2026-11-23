@@ -136,3 +136,16 @@ test('mileDeductLine: approximate IRS write-off under the Miles tile (Dima 2026-
   assert.equal(C.mileDeductLine({ miles: 12 }), ''); });
 test('weekStart: Monday of the week (Sunday belongs to the week before)', () => { assert.equal(C.weekStart('2026-11-21'), '2026-11-16'); assert.equal(C.weekStart('2026-11-16'), '2026-11-16'); assert.equal(C.weekStart('2026-11-22'), '2026-11-16'); assert.equal(C.weekStart('2026-11-23'), '2026-11-23'); assert.equal(C.weekStart('2027-01-01'), '2026-12-28'); assert.equal(C.weekStart('bad'), ''); });
 test('weekLabel: This week, Last week, then date range', () => { const now = new Date(2026, 10, 21, 10); assert.equal(C.weekLabel('2026-11-16', now), 'This week'); assert.equal(C.weekLabel('2026-11-09', now), 'Last week'); assert.equal(C.weekLabel('2026-11-02', now), 'Nov 2 – 8'); assert.equal(C.weekLabel('2026-10-26', now), 'Oct 26 – Nov 1'); assert.equal(C.weekLabel('2025-12-29', now), 'Dec 29, 2025 – Jan 4, 2026'); });
+
+test('keyAskEdit: stock guess preselected, average guess searches by make', () => {
+  const a = C.keyAskEdit(54, { vehicle: '2019 Hyundai Santa Fe', guess: { name: 'Hyundai Smart Key TQ8-FOB-4F19', unit: 24.5, qty: 1, est: false, how: 'stock' } });
+  assert.equal(a.sel, 'Hyundai Smart Key TQ8-FOB-4F19'); assert.equal(a.unit, 24.5); assert.equal(a.q, ''); assert.equal(a.take, true); assert.equal(a.where, 'lead'); assert.equal(a.qty, 1);
+  const b = C.keyAskEdit(69, { vehicle: '2018 Honda Accord', guess: { name: 'Smart key (average)', unit: 23, qty: 2, est: true, how: 'avg' } });
+  assert.equal(b.sel, ''); assert.equal(b.unit, ''); assert.equal(b.q, 'Honda'); assert.equal(b.qty, 2);
+  const c = C.keyAskEdit(7, null);
+  assert.equal(c.sel, ''); assert.equal(c.q, ''); assert.equal(c.qty, 1);
+});
+test('keyLinkNum: ?key=N from the Telegram button', () => {
+  assert.equal(C.keyLinkNum('?key=54'), 54); assert.equal(C.keyLinkNum('?a=1&key=7'), 7); assert.equal(C.keyLinkNum('?key=54&x=1'), 54);
+  assert.equal(C.keyLinkNum(''), 0); assert.equal(C.keyLinkNum('?key=abc'), 0); assert.equal(C.keyLinkNum('?monkey=5'), 0);
+});

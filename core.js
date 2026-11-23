@@ -85,6 +85,13 @@
   C.jobExtrasLine = function (j) { return ((j && j.extras) || []).map(function (x) { return (x.vendor || 'Cost') + ' ' + C.fmtMoney(x.amount); }).join(' · '); };
   const MAKE_ALIAS = { chevy: 'Chevrolet', vw: 'Volkswagen', benz: 'Mercedes', mercedes: 'Mercedes' };
   C.makeWord = function (vehicle) { const w = String(vehicle || '').replace(/\b(19|20)\d{2}\b/g, ' ').trim().split(/\s+/)[0] || ''; return MAKE_ALIAS[w.toLowerCase()] || w; };
+  /** Выбор ключа после Done (бот v299 отдаёт jobKey): угаданный ключ из стока уже выбран, иначе поиск по марке. ask = null — открыли по ссылке из Telegram */
+  C.keyAskEdit = function (num, ask) {
+    const g = (ask && ask.guess) || null, stock = !!(g && g.how === 'stock' && g.name), veh = (ask && ask.vehicle) || '';
+    return { num: num, where: 'lead', vehicle: veh, q: stock ? '' : C.makeWord(veh), sel: stock ? g.name : '', unit: stock ? Number(g.unit) || 0 : '', qty: (g && Number(g.qty)) || 1, take: true, items: null, keys: [], rm: 0 };
+  };
+  /** Ссылка «Other key» из Telegram: ?key=54 → 54, иначе 0 */
+  C.keyLinkNum = function (search) { const m = /[?&]key=(\d{1,6})(?:&|$)/.exec(String(search || '')); return m ? Number(m[1]) : 0; };
   C.filterStock = function (items, query) {
     const flat = x => String(x || '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ');
     const words = flat(query).trim().split(' ').filter(Boolean);
