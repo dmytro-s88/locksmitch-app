@@ -150,7 +150,8 @@
     if (keyClick(t)) return;
     const L = state.lead.lead;
     const B = t;
-    if (t.id === 'goDone') { const amt = Number($('amt').value); if (!(amt > 0)) { toast('Enter the amount', true); return; } const pay = chipVal('pay'); const coll = !!L.colleague;
+    if (t.id === 'goDone') { if (C.isFreeAmount($('amt').value) && !L.colleague) return leadAction('leadNoCharge', {}, { status: 'Done', statusKey: 'done', noCharge: true }, 'Recorded: free job', B, r => { if (r.jobKey) openKeyAsk(L.num, r.jobKey); });
+      const amt = Number($('amt').value); if (!(amt > 0)) { toast('Enter the amount (0 = free)', true); return; } const pay = chipVal('pay'); const coll = !!L.colleague;
       return leadAction('leadDone', { amount: amt, payment: pay, colleague: coll ? 'colleague' : '' }, { status: 'Done', statusKey: 'done', usd: coll ? L.usd : amt }, 'Recorded ' + C.fmtMoney(amt), B, r => { if (r.jobKey) openKeyAsk(L.num, r.jobKey); }); }
     if (t.id === 'goHand') { const who = C.handoffWho(chipVal('who'), $('sheet').querySelector('[data-f="who"]').value), amt = Number($('sheet').querySelector('[data-f="amt"]').value) || 0;
       return leadAction('leadHandoff', { who: who, amount: amt }, amt > 0 ? { status: 'Done', statusKey: 'done', colleague: true } : { colleague: true }, 'Handed off' + (who ? ' to ' + who : ''), B); }

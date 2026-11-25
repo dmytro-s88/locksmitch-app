@@ -118,6 +118,7 @@
   C.leadsKey = function (filter, day) { return filter === 'today' && day ? 'today:' + day : filter; };
   /** Status label for the pill: scheduled leads show when (Dima 2026-11-15). Pure. */
   C.statusText = function (L) {
+    if (L && L.statusKey === 'done' && L.noCharge) return (L.status || 'Done') + ' \u00b7 free';   // Done с $0 (Дима 2026-11-25)
     if (!L || L.statusKey !== 'scheduled' || L.visit === undefined) return (L && L.status) || '';   // undefined: bot not yet sending visit
     return (L.status || 'Scheduled') + ' · ' + (L.visit || 'no time set');
   };
@@ -127,6 +128,8 @@
   /** A done lead with no payment recorded: the card shows "Add payment". Colleague jobs and "no charge" jobs are not asked. Pure. */
   C.needsPayment = function (L) { return !!L && L.statusKey === 'done' && !(Number(L.usd) > 0) && !L.colleague && !L.noCharge; };
   C.unpaidLine = function (u, now) { return ['#' + u.num + (u.name ? ' ' + u.name : ''), u.title, C.dayLabel(u.date, now)].filter(Boolean).join(' \u00b7 '); };
+  /** Done with 0 typed in the amount = a free job (Dima 2026-11-25: «если я ставлю 0, пусть будет free»). Empty field is not 0. Pure. */
+  C.isFreeAmount = function (v) { const t = String(v == null ? '' : v).trim(); return t !== '' && Number(t) === 0; };
   C.payAmount = function (v) { const t = String(v == null ? '' : v).trim(), n = Number(t); return t !== '' && isFinite(n) && n > 0 ? n : null; };
   /** Jobs to pick for "+ Income": done but not paid first, then open leads. Pure. */
   C.incomeChoices = function (unpaid, open) {

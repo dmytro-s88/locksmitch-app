@@ -149,3 +149,9 @@ test('keyLinkNum: ?key=N from the Telegram button', () => {
   assert.equal(C.keyLinkNum('?key=54'), 54); assert.equal(C.keyLinkNum('?a=1&key=7'), 7); assert.equal(C.keyLinkNum('?key=54&x=1'), 54);
   assert.equal(C.keyLinkNum(''), 0); assert.equal(C.keyLinkNum('?key=abc'), 0); assert.equal(C.keyLinkNum('?monkey=5'), 0);
 });
+test('free job: Done with 0 means no charge, the pill and list say free', () => {
+  assert.equal(C.isFreeAmount('0'), true); assert.equal(C.isFreeAmount(' 0.00 '), true);
+  assert.equal(C.isFreeAmount(''), false); assert.equal(C.isFreeAmount('50'), false); assert.equal(C.isFreeAmount('abc'), false);
+  assert.equal(C.statusText({ status: 'Done', statusKey: 'done', noCharge: true }), 'Done · free');
+  assert.equal(C.statusText({ status: 'Done', statusKey: 'done' }), 'Done');
+  assert.equal(C.needsPayment({ statusKey: 'done', usd: 0, noCharge: true }), false); });
