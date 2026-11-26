@@ -119,6 +119,8 @@
   /** Status label for the pill: scheduled leads show when (Dima 2026-11-15). Pure. */
   C.statusText = function (L) {
     if (L && L.statusKey === 'done' && L.noCharge) return (L.status || 'Done') + ' \u00b7 free';   // Done с $0 (Дима 2026-11-25)
+    if (L && L.colleague && L.statusKey === 'done') return (L.status || 'Done') + ' \u00b7 hand off';   // работа коллеги (Дима 2026-11-25)
+    if (L && L.colleague && !/^(lost|spam)$/.test(L.statusKey)) return 'Handed off';
     if (!L || L.statusKey !== 'scheduled' || L.visit === undefined) return (L && L.status) || '';   // undefined: bot not yet sending visit
     return (L.status || 'Scheduled') + ' · ' + (L.visit || 'no time set');
   };

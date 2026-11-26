@@ -155,3 +155,7 @@ test('free job: Done with 0 means no charge, the pill and list say free', () => 
   assert.equal(C.statusText({ status: 'Done', statusKey: 'done', noCharge: true }), 'Done · free');
   assert.equal(C.statusText({ status: 'Done', statusKey: 'done' }), 'Done');
   assert.equal(C.needsPayment({ statusKey: 'done', usd: 0, noCharge: true }), false); });
+test('hand-off: colleague jobs say so in the pill', () => {
+  assert.equal(C.statusText({ status: 'Done', statusKey: 'done', colleague: true }), 'Done · hand off');
+  assert.equal(C.statusText({ status: 'Need to contact', statusKey: 'new', colleague: true }), 'Handed off');
+  assert.equal(C.statusText({ status: 'Lost', statusKey: 'lost', colleague: true }), 'Lost'); });
